@@ -1,0 +1,2694 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>정육 해체장</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* Layout: full-bleed 3D back room (tiled wall, rail hook, steel tray) with a brass-lit HUD floating over it; tray ledger on the right, tools along the bottom. Single dark look by choice. */
+:root{
+  --bg:#14110e;
+  --panel:rgba(24,20,17,.9);
+  --line:rgba(243,236,226,.12);
+  --ink:#f3ece2;
+  --muted:#a99d8d;
+  --guide:#ffcf3f;
+  --saw:#8fd3ff;
+  --stamp:#a585f0;
+  --danger:#ef6a5b;
+  --f-display:'Black Han Sans','IBM Plex Sans KR',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans KR',system-ui,-apple-system,'Malgun Gothic',sans-serif;
+  --f-num:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);overflow:hidden;-webkit-user-select:none;user-select:none}
+#app{position:relative;width:100%;height:100%;overflow:hidden}
+#stage{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+#stage canvas{display:block;width:100%;height:100%}
+#trail{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.glabel{position:absolute;transform:translate(-50%,calc(-100% - 10px));display:flex;align-items:center;gap:6px;padding:3px 9px 3px 4px;border-radius:999px;background:rgba(20,16,13,.82);border:1px solid rgba(255,207,63,.55);font-size:12px;font-weight:600;white-space:nowrap}
+.glabel .n{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--guide);color:#1b1408;font-family:var(--f-num);font-size:11px}
+.glabel.saw{border-color:rgba(143,211,255,.6)}
+.glabel.saw .n{background:var(--saw)}
+.glabel .tool{font-size:10.5px;font-weight:600;color:var(--saw);border:1px solid rgba(143,211,255,.5);border-radius:4px;padding:0 4px}
+.glabel.locked{border-color:var(--line);color:var(--muted)}
+.glabel.locked .n{background:#6d675e;color:#1b1408}
+.glabel em{font-style:normal;font-weight:400;font-size:11px}
+
+.top{position:absolute;left:16px;right:16px;top:calc(12px + env(safe-area-inset-top,0px));display:flex;flex-wrap:wrap;gap:12px 28px;align-items:flex-start;pointer-events:none}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;letter-spacing:.02em;line-height:1}
+.brand p{margin:6px 0 0;color:var(--muted);font-size:12px}
+.meters{display:flex;gap:22px}
+.meters div{display:flex;flex-direction:column;gap:2px}
+.meters .k{font-size:10.5px;letter-spacing:.12em;color:var(--muted)}
+.meters .v{font-family:var(--f-num);font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.panel{position:absolute;right:16px;top:calc(16px + env(safe-area-inset-top,0px));width:264px;max-height:calc(100% - 110px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 14px}
+.panel details{padding-block:10px}
+.panel details+details{border-top:1px solid var(--line)}
+.panel summary{cursor:pointer;font-weight:600;font-size:13px;letter-spacing:.04em;list-style:none;display:flex;justify-content:space-between}
+.panel summary::-webkit-details-marker{display:none}
+.panel summary::after{content:'+';color:var(--muted)}
+.panel details[open] summary::after{content:'–'}
+.panel ol,.panel ul{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.tray li{display:grid;grid-template-columns:1fr auto 40px;align-items:center;gap:8px;font-size:13px}
+.tray .w{font-family:var(--f-num);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.empty{margin:10px 0 0;color:var(--muted);font-size:12px}
+.stamp{display:inline-grid;place-items:center;width:36px;height:36px;border:2px solid var(--stamp);border-radius:50%;color:var(--stamp);font-family:var(--f-display);font-size:11px;line-height:1;transform:rotate(-12deg);opacity:.92}
+.stamp.bad{border-color:var(--danger);color:var(--danger)}
+.stamp.bone{border-color:var(--muted);color:var(--muted)}
+.prof li{display:grid;grid-template-columns:62px 1fr 34px;align-items:center;gap:8px;font-size:12.5px}
+.prof .lv{color:var(--guide);font-weight:600}
+.prof .bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.prof .bar i{display:block;height:100%;background:var(--guide)}
+.prof .lvtxt{text-align:right;font-size:11.5px;color:var(--muted)}
+
+.controls{position:absolute;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;justify-content:center;gap:8px;pointer-events:none}
+.controls>*{pointer-events:auto}
+button,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer}
+button:hover,select:hover{border-color:rgba(255,207,63,.6)}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--guide);outline-offset:2px}
+.sel{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:0 4px 0 12px;font-size:13px}
+.sel select{border:0;background:transparent;padding:9px 8px}
+.secondary{display:contents}
+.tools{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.tools button{border:0;border-radius:0;background:transparent}
+.tools button+button{border-left:1px solid var(--line)}
+.tools button[aria-pressed="true"]{background:rgba(255,207,63,.16);color:var(--guide)}
+.tools button#toolSaw[aria-pressed="true"]{background:rgba(143,211,255,.16);color:var(--saw)}
+kbd{font-family:var(--f-num);font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:6px;color:var(--muted)}
+#flipBtn.nudge{border-color:var(--guide);box-shadow:0 0 0 3px rgba(255,207,63,.18)}
+
+#toast{position:absolute;left:50%;top:22%;transform:translate(-50%,-6px);padding:10px 16px;border-radius:8px;background:rgba(20,16,13,.9);border:1px solid var(--line);font-size:14px;font-weight:500;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.warn{border-color:rgba(239,106,91,.6)}
+#toast.good{border-color:rgba(165,133,240,.7)}
+
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,8,6,.66);padding:16px;overflow:auto}
+.card{width:min(580px,100%);background:#1c1814;border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:16px}
+.card h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:26px;text-wrap:balance}
+.card ol{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.55}
+.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.card p.best{color:var(--ink);font-size:14px;font-weight:600}
+.card p.best b{color:var(--guide);font-family:var(--f-display);font-weight:400;font-size:17px}
+.card details>summary{cursor:pointer;font-weight:600;font-size:13px;list-style:none;color:var(--muted)}
+.card details>summary::-webkit-details-marker{display:none}
+.card details>summary::after{content:' ▾';}
+.card details[open]>summary::after{content:' ▴'}
+.card details[open]{display:grid;gap:12px}
+.endBtns{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.card .go{justify-self:start;background:var(--guide);color:#1b1408;border-color:var(--guide);font-weight:600;padding:11px 20px}
+.picks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.picks button{display:grid;gap:4px;text-align:left;padding:14px 16px;border-radius:10px;background:#231e19}
+.picks button:hover{border-color:var(--guide)}
+.chips{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.chips .lbl{font-size:12px;color:var(--muted);letter-spacing:.06em;margin-right:2px}
+/* 2차는 동물이 넷이라 칩이 스물 몇 개다 — 동물 이름이 줄을 끊어야 어느 동물의 부위인지 보인다
+   (부위 이름은 동물끼리 겹친다: 등심·안심·갈비·앞다리). */
+#cut2Box{grid-column:1/-1}
+#cut2Picks .lbl{flex-basis:100%}
+#cut2Picks .lbl:not(:first-child){margin-top:6px}
+.chips button{display:inline-flex;align-items:center;min-height:40px;padding:4px 14px;border-radius:999px;background:#231e19;font-size:13.5px}
+.chips button:hover{border-color:var(--guide)}
+.picks b{font-family:var(--f-display);font-weight:400;font-size:20px}
+.picks span{color:var(--muted);font-size:12.5px;line-height:1.45}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stats div{display:flex;flex-direction:column;gap:3px}
+.stats .k{font-size:11px;color:var(--muted);letter-spacing:.08em}
+.stats .v{font-family:var(--f-num);font-size:19px;font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto;max-height:46vh}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.06em}
+td.num{font-family:var(--f-num);text-align:right;font-variant-numeric:tabular-nums}
+th.num{text-align:right}
+
+/* 휴대폰 우선. 고기 위에는 아무것도 올리지 않는다 — 조작은 아래 한 줄,
+   나머지는 '메뉴'를 눌러야 올라오는 시트로 내린다. */
+@media (pointer:coarse){ kbd{display:none} }
+@media (max-width:760px), (max-height:520px){
+  .brand h1{font-size:19px}
+  .brand p{display:none}
+  .top{left:12px;right:12px;gap:4px 14px;align-items:center}
+  .meters{gap:12px}
+  .meters .k{font-size:9.5px;letter-spacing:.08em}
+  .meters .v{font-size:14px}
+  .controls{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));flex-wrap:nowrap;gap:8px}
+  .controls>*{flex:0 0 auto}
+  button,select,.sel{min-height:46px}            /* 손가락이 닿는 크기 */
+  .tools button{padding:0 18px;font-size:15px}
+  #flipBtn{padding:0 16px;font-size:15px}
+  #sheetBtn{display:grid;place-items:center;width:46px;padding:0;font-size:19px;line-height:1}
+  /* 시트: 평소엔 아래로 내려가 있고 '메뉴'를 누르면 올라온다 */
+  .panel{left:0;right:0;width:auto;top:auto;bottom:0;max-height:62%;border-radius:14px 14px 0 0;
+         border-left:0;border-right:0;border-bottom:0;padding:4px 16px calc(74px + env(safe-area-inset-bottom,0px));
+         background:#191512;transform:translateY(102%);transition:transform .22s ease;z-index:3}
+  body.sheet .panel{transform:none}
+  .panel .secondary{display:grid;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
+  .panel .secondary .sel{justify-content:space-between}
+  .panel .secondary select{flex:1;text-align:right}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .picks{grid-template-columns:1fr}
+  .card{padding:18px}
+  .card h2{font-size:21px}
+  .glabel{font-size:11px;padding:2px 7px 2px 3px}
+  .glabel .n{width:16px;height:16px;font-size:10px}
+  .glabel em{display:none}                        /* 무엇을 먼저 떼야 하는지는 토스트가 말해 준다 */
+}
+@media (min-width:761px) and (min-height:521px){ #sheetBtn{display:none} }
+@media (prefers-reduced-motion:reduce){#toast,.panel{transition:none}}
+  .overlay .credit { margin-top: 14px; font-size: 11px; opacity: .55; }
+  .overlay .credit a { color: inherit; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="stage" aria-label="해체 작업대"></div>
+  <canvas id="trail"></canvas>
+  <div id="labels"></div>
+
+  <header class="top">
+    <div class="brand">
+      <h1 id="brandName">정육 해체장</h1>
+      <p id="subtitle">1차 대분할</p>
+    </div>
+    <div class="meters">
+      <div><span class="k">시간</span><span id="timer" class="v">0:00</span></div>
+      <div id="sideBox"><span class="k">보는 면</span><span id="sideLbl" class="v">A면</span></div>
+      <div id="orderMeter" hidden><span class="k">주문</span><span id="orderV" class="v">—</span></div>
+      <div><span class="k">분리</span><span id="progress" class="v">0 / 10</span></div>
+      <div id="shotMeter" hidden><span class="k">산탄</span><span id="shotLeft" class="v">0발</span></div>
+    </div>
+  </header>
+
+  <aside class="panel">
+    <details id="trayBox" open>
+      <summary>트레이</summary>
+      <ol id="trayList" class="tray"></ol>
+      <p id="trayEmpty" class="empty">분리한 부위가 여기에 쌓여요.</p>
+    </details>
+    <details id="profBox" open>
+      <summary>숙련도</summary>
+      <ul id="profList" class="prof"></ul>
+    </details>
+  </aside>
+
+  <nav class="controls">
+    <div id="tools" class="tools" role="group" aria-label="도구">
+      <button id="toolKnife" type="button" aria-pressed="true">칼<kbd>Q</kbd></button>
+      <button id="toolSaw" type="button" aria-pressed="false">톱<kbd>W</kbd></button>
+    </div>
+    <button id="flipBtn" type="button">뒤집기<kbd>Space</kbd></button>
+    <div id="secondary" class="secondary">
+    <label class="sel" for="modeSel">가이드
+      <select id="modeSel">
+        <option value="auto">숙련도대로</option>
+        <option value="0">견습 · 실선과 순서</option>
+        <option value="1">초보 · 점선</option>
+        <option value="2">숙련 · 시작과 끝</option>
+        <option value="3">장인 · 없음</option>
+      </select>
+    </label>
+    <label class="sel" for="animalSel">고기
+      <select id="animalSel">
+        <option value="chicken">닭 한 마리</option>
+        <option value="pig">돼지 반 마리</option>
+        <option value="beef">소 반 마리</option>
+        <option value="deer">사슴</option>
+        <optgroup id="cut2Opts" label="2차 소분할"></optgroup>
+      </select>
+    </label>
+    <button id="soundBtn" type="button" aria-pressed="true">소리 켜짐</button>
+    <button id="resetBtn" type="button">새로 걸기</button>
+    </div>
+    <button id="sheetBtn" type="button" aria-expanded="false" aria-label="메뉴">☰</button>
+  </nav>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <div id="startOv" class="overlay">
+    <div class="card">
+      <h2>오늘 해체할 고기를 고르세요</h2>
+      <div class="picks">
+        <button type="button" data-animal="chicken"><b>닭 한 마리</b><span>관절만 찾으면 되는 입문용. 양쪽 면 10부위.</span></button>
+        <button type="button" data-animal="pig"><b>돼지 반 마리</b><span>이분도체 약 35kg. 대분할 7부위, 뼈는 톱으로.</span></button>
+        <button type="button" data-animal="beef"><b>소 반 마리</b><span>약 160kg. 먼저 사분 체절로 앞뒤를 나눈 뒤 9부위.</span></button>
+        <button type="button" data-animal="deer"><b>사슴</b><span>약 13kg. 톱을 안 쓴다 — 솔기를 따라 4부위. 박힌 산탄을 찾아 빼야 한다.</span></button>
+        <details id="cut2Box"><summary>2차 소분할 (27덩어리)</summary>
+          <div class="chips" id="cut2Picks"></div>
+        </details>
+      </div>
+      <details id="howto" open><summary>조작법</summary>
+      <ol>
+        <li>노란 칼선을 따라 드래그하면 칼이 들어가요. 여러 번 나눠 그어도 돼요.</li>
+        <li>칼선이 끝까지 이어지면 부위가 떨어져 트레이로 가요.</li>
+        <li>관절이 아닌 곳에서 뼈를 치면 칼이 튕겨요. 하늘색 선은 뼈를 지나는 선이라 톱(W)으로 앞뒤로 여러 번 문질러야 썰려요.</li>
+        <li>순서상 아직 닿지 않는 부위에는 칼이 들어가지 않아요. 막히면 뒤집기(Space)로 반대쪽 면을 확인하세요.</li>
+        <li>2차 소분할은 작업대를 위에서 내려다봐요. 세 부위를 떼고 나면 주문이 들어오는데, 끝에서부터 덩어리를 가로질러 한 줄씩 그어 썰면 한 토막씩 떨어져요. 노란 선이 주문한 두께예요.</li>
+      </ol>
+      <p>칼선에서 크게 벗어나거나 엉뚱한 곳을 베면 파지육이 되어 다짐육 값으로 팔려요. 숙련도가 오르면 가이드가 점점 사라져요.</p>
+      </details>
+      <p class="credit">지육 모델: <a href="https://blendswap.com/blend/25115" target="_blank" rel="noopener">Hanging Pig Carcass</a> by oparaskos (CC BY 4.0) · <a href="https://blendswap.com/blend/6497" target="_blank" rel="noopener">Plucked Chicken</a> by maconbot (CC0). 소·사슴은 같은 돼지 지육을 비율만 바꿔 쓴 것입니다.</p>
+    </div>
+  </div>
+
+  <div id="resultOv" class="overlay" hidden>
+    <div class="card">
+      <h2 id="resultTitle">해체 완료</h2>
+      <div class="stats">
+        <div><span class="k">정육 수율</span><span id="rYield" class="v">0%</span></div>
+        <div><span class="k">평균 정확도</span><span id="rAcc" class="v">0</span></div>
+        <div><span class="k">시간</span><span id="rTime" class="v">0:00</span></div>
+        <div><span class="k">판매가</span><span id="rWon" class="v">0원</span></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>부위</th><th>등급</th><th class="num">무게</th><th class="num">정확도</th><th class="num">판매가</th></tr></thead>
+          <tbody id="rBody"></tbody>
+        </table>
+      </div>
+      <p id="rBest" class="best"></p>
+      <div id="toCut2" class="chips"></div>
+      <p id="rPrices"></p>
+      <div class="endBtns">
+        <button id="againBtn" class="go" type="button">한 번 더</button>
+        <button id="menuBtn" type="button">메뉴로</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const $ = s => document.querySelector(s);
+// 휴대폰 우선: 레이아웃·카메라·부하를 여기서 가른다. 눕힌 휴대폰(낮은 화면)도 같이 친다.
+const phone = () => innerWidth <= 760 || innerHeight <= 520;
+const stageEl = $('#stage'), trailCv = $('#trail'), labelsEl = $('#labels'), toastEl = $('#toast');
+const modeSel = $('#modeSel'), animalSel = $('#animalSel');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ---------- constants ---------- */
+const PICK_Z = 1.1;          // overlay plane in front of the facing side (local units)
+const CAPTURE = 0.32;        // how far a stroke may stray and still count as following a guide
+const SAW_PASSES = 4;        // back-and-forth passes a saw line needs
+const TRAY_TOP = -3.175;
+const LEVELS = ['견습', '초보', '숙련', '장인'];
+const XP_STEPS = [0, 4, 10, 18];
+
+/* ---------- renderer & scene ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, phone() ? 1.75 : 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled = true;   // 2차에서 덩어리를 썰어 나간 만큼 깎는다
+stageEl.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x15110e);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(24, 1, 0.1, 100);
+let camBaseX = 0;        // 2차는 카메라를 굴려 놓아서 x가 0이 아니다 (frame()의 흔들림이 덮어쓰지 않게)
+const LOOK = new THREE.Vector3(0, -0.3, 0);
+
+const hemi = new THREE.HemisphereLight(0xfff1e0, 0x2a1d16, 0.35);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffe9cf, 2.1);
+key.position.set(-4, 7, 8);
+key.castShadow = true;
+key.shadow.mapSize.set(phone() ? 1024 : 2048, phone() ? 1024 : 2048);
+Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 30 });
+key.shadow.bias = -0.0005;
+key.shadow.normalBias = 0.02;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xa9c4ff, 0.9);
+rim.position.set(6, 3, -5);
+scene.add(rim);
+const lamp = new THREE.PointLight(0xffc98a, 7, 12, 2);
+lamp.position.set(0, 3.7, 2.6);
+scene.add(lamp);
+/* 2차 전용 — 작업대를 **스치듯** 지나가는 빛. 위에서 내리꽂는 빛만으로는 울퉁불퉁한 게
+   안 보인다 (법선이 전부 위를 봐서 N·L이 고르게 나온다). 거의 눕혀 깔아야 결과 지방이 산다.
+   화면 왼쪽 위에서 들어오게 둔다 (가로로 눕힌 2차 기준: 화면 위 = -x, 화면 왼쪽 = +z). */
+const graze = new THREE.DirectionalLight(0xffe0bf, 9);
+graze.position.set(-5, 0.85, 5);        // 수평에서 7° — 이보다 세우면 요철이 바로 죽는다
+graze.visible = false;
+scene.add(graze);
+
+/* ---------- procedural textures ---------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const R = mulberry32(42);
+function tex(size, draw, color = true) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  if (color) t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+function blotchy(g, s, base, blotches, pore) {
+  g.fillStyle = base; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 46; i++) {
+    const x = R() * s, y = R() * s, r = 20 + R() * 80;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, blotches[i % blotches.length]); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  for (let i = 0; i < 5200; i++) {
+    g.fillStyle = `rgba(${pore},${0.05 + R() * 0.12})`;
+    g.beginPath(); g.arc(R() * s, R() * s, 0.5 + R() * 1.3, 0, 7); g.fill();
+  }
+}
+const skinMap = tex(512, (g, s) => blotchy(g, s, '#efc59c', ['rgba(230,150,130,.22)', 'rgba(252,226,186,.28)'], '150,100,70'));
+const porkSkinMap = tex(512, (g, s) => blotchy(g, s, '#f2d9cd', ['rgba(236,170,160,.2)', 'rgba(255,240,230,.3)', 'rgba(220,190,170,.18)'], '160,110,100'));
+const skinBump = tex(512, (g, s) => {
+  g.fillStyle = '#808080'; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 6500; i++) {
+    g.fillStyle = `rgba(0,0,0,${0.15 + R() * 0.3})`;
+    g.beginPath(); g.arc(R() * s, R() * s, 0.6 + R() * 1.6, 0, 7); g.fill();
+  }
+}, false);
+const meatMap = tex(512, (g, s) => {
+  g.fillStyle = '#b44a45'; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 900; i++) {
+    const y = R() * s, x = R() * s, l = 40 + R() * 160;
+    g.strokeStyle = R() < 0.5 ? `rgba(222,128,118,${0.12 + R() * 0.2})` : `rgba(120,30,32,${0.1 + R() * 0.2})`;
+    g.lineWidth = 0.6 + R() * 2;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y + (R() - 0.5) * 14); g.stroke();
+  }
+  for (let i = 0; i < 9; i++) {
+    g.strokeStyle = 'rgba(245,225,205,.33)'; g.lineWidth = 2 + R() * 5;
+    const y = R() * s;
+    g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(s * 0.3, y + (R() - 0.5) * 40, s * 0.6, y + (R() - 0.5) * 40, s, y + (R() - 0.5) * 20); g.stroke();
+  }
+});
+const tileMap = tex(512, (g, s) => {
+  g.fillStyle = '#4f544f'; g.fillRect(0, 0, s, s);
+  const th = 32, tw = 64;
+  for (let r = 0; r < s / th; r++) for (let c = -1; c < s / tw + 1; c++) {
+    const x = c * tw + (r % 2 ? tw / 2 : 0), y = r * th, v = 196 + Math.floor(R() * 20);
+    g.fillStyle = `rgb(${v - 14},${v},${v - 10})`; g.fillRect(x + 2, y + 2, tw - 4, th - 4);
+    g.fillStyle = 'rgba(255,255,255,.16)'; g.fillRect(x + 3, y + 3, tw - 6, 3);
+  }
+  const gr = g.createLinearGradient(0, 0, 0, s);
+  gr.addColorStop(0, 'rgba(40,30,20,0)'); gr.addColorStop(1, 'rgba(40,30,20,.25)');
+  g.fillStyle = gr; g.fillRect(0, 0, s, s);
+});
+tileMap.repeat.set(5, 3);
+skinMap.repeat.set(1.5, 1.5); skinBump.repeat.set(1.5, 1.5);
+porkSkinMap.repeat.set(0.7, 0.7);
+
+/* ---------- materials ---------- */
+const skinMat = new THREE.MeshPhysicalMaterial({ map: skinMap, bumpMap: skinBump, bumpScale: 0.35, roughness: 0.52, clearcoat: 0.35, clearcoatRoughness: 0.45, envMapIntensity: 0.45 });
+const porkSkinMat = new THREE.MeshPhysicalMaterial({ map: porkSkinMap, bumpMap: skinBump, bumpScale: 0.25, roughness: 0.5, clearcoat: 0.3, clearcoatRoughness: 0.5, envMapIntensity: 0.45 });
+const meatMat = new THREE.MeshPhysicalMaterial({ map: meatMap, roughness: 0.42, clearcoat: 0.6, clearcoatRoughness: 0.3, envMapIntensity: 0.45 });
+const steelMat = new THREE.MeshStandardMaterial({ color: 0xb9c0c4, metalness: 0.9, roughness: 0.32 });
+const trayMat = new THREE.MeshStandardMaterial({ color: 0xc3c9cc, metalness: 0.85, roughness: 0.42 });
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2521, roughness: 0.85 });
+const wallMat = new THREE.MeshStandardMaterial({ map: tileMap, color: 0x8a8f88, roughness: 0.35, envMapIntensity: 0.25 });
+const ov = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthTest: false, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+const guideMat = ov(0xffcf3f, 0.95);
+const sawGuideMat = ov(0x8fd3ff, 0.95);
+const guideLockedMat = ov(0x9a958c, 0.4);
+const cutMat = ov(0x3d080b, 0.95);
+const scratchMat = ov(0x6b1517, 0.85);
+const grooveMat = ov(0x7e3b2e, 0.8);   // 아직 다 안 썰린 톱자리
+const ringMat = ov(0xffcf3f, 0.55);
+const ringGeo = new THREE.RingGeometry(0.035, 0.065, 28);
+const hoverGeo = new THREE.RingGeometry(0.1, 0.13, 40);
+
+/* ---------- room ---------- */
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(34, 18), wallMat);
+wall.position.set(0, 0, -2.6); wall.receiveShadow = true; scene.add(wall);
+const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 34, 16), steelMat);
+rail.rotation.z = Math.PI / 2; rail.position.set(0, 2.78, 0); scene.add(rail);
+const counterTop = new THREE.Mesh(new THREE.BoxGeometry(9, 0.12, 3.4), steelMat);
+counterTop.position.set(0, -3.32, 0.2); counterTop.receiveShadow = true; scene.add(counterTop);
+const counter = new THREE.Mesh(new THREE.BoxGeometry(9, 3, 3.3), darkMat);
+counter.position.set(0, -4.88, 0.2); scene.add(counter);
+/* 2차 작업대에 깔리는 흰 도마. 정육점은 나무가 아니라 흠집 난 플라스틱 도마를 쓴다. */
+const plankMap = tex(512, (g, s) => {
+  g.fillStyle = '#e9e7e0'; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 180; i++) {
+    g.strokeStyle = `rgba(118,118,110,${0.04 + R() * 0.12})`; g.lineWidth = 0.6 + R();
+    const x = R() * s, y = R() * s, a = R() * Math.PI, l = 18 + R() * 130;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+});
+const plankMat = new THREE.MeshStandardMaterial({ map: plankMap, color: 0xf2f0ea, roughness: 0.78 });
+const tray = new THREE.Group();
+const trayBase = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.05, 2.4), trayMat);
+trayBase.position.y = TRAY_TOP - 0.025; trayBase.receiveShadow = true; tray.add(trayBase);
+[[0, 1.2, 4.8, 0.05], [0, -1.2, 4.8, 0.05], [2.4, 0, 0.05, 2.4], [-2.4, 0, 0.05, 2.4]].forEach(([x, z, w, d]) => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, d), trayMat);
+  m.position.set(x, TRAY_TOP + 0.06, z); m.castShadow = true; m.receiveShadow = true; tray.add(m);
+});
+scene.add(tray);
+/* 2차 도마. 윗면이 TD_Y + 0.16 (덩어리 바닥)과 같은 높이라야 고기가 도마에 닿는다. */
+/* 화면보다 크게 깐다. 가장자리가 보이면 작업대가 아니라 '떠 있는 작은 판'으로 보인다. */
+const plank = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.08, 11), plankMat);
+plank.position.set(0.05, -3.22, 1.55); plank.receiveShadow = true; plank.visible = false;
+scene.add(plank);
+
+/* ---------- geometry helpers ---------- */
+function ribbonMulti(runs, w) {
+  const pos = [], idx = []; let base = 0;
+  for (const pts of runs) {
+    if (pts.length < 2) continue;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
+      const nx = -dy / L * w / 2, ny = dx / L * w / 2, z = pts[i][2] || 0;
+      pos.push(pts[i][0] + nx, pts[i][1] + ny, z, pts[i][0] - nx, pts[i][1] - ny, z);
+      if (i > 0) { const k = base + (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    }
+    base += pts.length * 2;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
+}
+function dashRuns(s) {
+  const runs = []; let cur = [];
+  for (let i = 0; i < s.length; i++) {
+    if (i % 5 < 3) cur.push(s[i]);
+    else if (cur.length) { runs.push(cur); cur = []; }
+  }
+  if (cur.length) runs.push(cur);
+  return runs;
+}
+
+/* ---------- pig slab helpers: extruded half-carcass pieces with a painted split face ---------- */
+function bboxOf(poly, pad = 0.06) {
+  let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  poly.forEach(([x, y]) => { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); });
+  return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
+}
+function faceTex(poly, draw, ppu = 300, cap = 1024) {
+  const b = bboxOf(poly);
+  const cw = Math.min(cap, Math.ceil(b.w * ppu)), ch = Math.min(cap, Math.ceil(b.h * ppu));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const g = c.getContext('2d');
+  g.setTransform(cw / b.w, 0, 0, -ch / b.h, -b.minX * cw / b.w, b.maxY * ch / b.h);
+  draw(g, b);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return { t, b };
+}
+// painting helpers, all in carcass units (canvas is pre-transformed)
+function paintMeat(g, b, color, n = 520) {
+  g.fillStyle = color; g.fillRect(b.minX, b.minY, b.w, b.h);
+  for (let i = 0; i < n; i++) {
+    const x = b.minX + R() * b.w, y = b.minY + R() * b.h, l = 0.05 + R() * 0.22;
+    g.strokeStyle = R() < 0.5 ? `rgba(228,140,128,${0.1 + R() * 0.18})` : `rgba(105,26,28,${0.08 + R() * 0.16})`;
+    g.lineWidth = 0.004 + R() * 0.008;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + l * 0.25, y + l); g.stroke();
+  }
+}
+function paintSeam(g, pts, w = 0.022) {
+  g.strokeStyle = 'rgba(246,232,218,.8)'; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length - 1; i++) { const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2; g.quadraticCurveTo(pts[i][0], pts[i][1], mx, my); }
+  g.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); g.stroke();
+}
+function paintBone(g, x, y, rx, ry, rot = 0) {
+  g.fillStyle = '#efe3cf'; g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, 7); g.fill();
+  g.fillStyle = 'rgba(160,70,62,.55)'; g.beginPath(); g.ellipse(x, y, rx * 0.45, ry * 0.45, rot, 0, 7); g.fill();
+}
+function paintBackfat(g, b, x0) { g.fillStyle = '#f4e8dc'; g.fillRect(x0, b.minY, b.maxX - x0, b.h); }
+function paintVertebrae(g, x0, x1, y0, y1, step) {
+  for (let y = y1; y > y0 + step * 0.4; y -= step) {
+    g.fillStyle = '#ecdfc9'; g.beginPath(); g.roundRect(x0, y - step * 0.84, x1 - x0, step * 0.74, 0.03); g.fill();
+    g.fillStyle = 'rgba(120,40,40,.5)'; g.beginPath(); g.ellipse(x1 - 0.03, y - step * 0.47, 0.022, step * 0.22, 0, 0, 7); g.fill();
+  }
+}
+function paintMarble(g, b, n) {
+  for (let i = 0; i < n; i++) {
+    g.fillStyle = `rgba(248,236,224,${0.35 + R() * 0.4})`;
+    g.beginPath(); g.ellipse(b.minX + R() * b.w, b.minY + R() * b.h, 0.006 + R() * 0.02, 0.004 + R() * 0.01, R() * 3, 0, 7); g.fill();
+  }
+}
+function gradeStamp() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.strokeStyle = 'rgba(96,70,190,.82)'; g.fillStyle = 'rgba(96,70,190,.82)';
+  g.lineWidth = 12; g.beginPath(); g.arc(128, 128, 104, 0, 7); g.stroke();
+  g.lineWidth = 4; g.beginPath(); g.arc(128, 128, 86, 0, 7); g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '700 92px "IBM Plex Mono", monospace'; g.fillText('1+', 128, 120);
+  g.font = '600 30px "IBM Plex Sans KR", sans-serif'; g.fillText('등급', 128, 186);
+  g.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(0,0,0,${R() * 0.6})`; g.fillRect(R() * 256, R() * 256, 1 + R() * 3, 1 + R() * 3); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const stampMat = new THREE.MeshBasicMaterial({ map: gradeStamp(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+const zray = new THREE.Raycaster();
+/* 도장 z. 부위 두께 상수(depth)는 블렌더 모델과 어긋나서 도장이 고기 앞 허공에 떴다.
+   그래서 상수를 지우고 그 자리의 실제 메시 표면을 쏘아 찾는다. */
+function surfaceZ(list, x, y, lift = 0.012, side = 1) {
+  list.forEach(m => m.updateMatrixWorld());
+  zray.set(new THREE.Vector3(x, y, 9 * side), new THREE.Vector3(0, 0, -side));
+  const h = zray.intersectObjects(list, false);
+  return h.length ? h[0].point.z + lift * side : null;   // null = 그 자리에 살이 없다
+}
+function stampAt(x, y, z, size = 0.36, rot = -0.2) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), stampMat);
+  m.position.set(x, y, z); m.rotation.z = rot;
+  return m;
+}
+
+/* ---------- CHICKEN (local coords; s = +1 side A, -1 side B) ---------- */
+/* 닭 관절 — 칼이 튕기지 않는 자리 (블렌더 모델 기준) */
+const CJ = { S: [0.1, 0.6], H: [0.3, -0.92], K: [0.1, -1.52] };
+/* 부위 메시는 models/chicken.glb에서 온다 (tools/build_models.py의 CHICK_CUTS와 같은 자리).
+   guide는 모델에서 그 부위가 몸통과 만나는 자리를 따라간다. */
+const CHICKEN_DEFS = [
+  { id: 'wing', name: '날개', order: 1, prereq: [], weight: 95, price: 13000, pivot: [0.1, 0.6], sag: -0.3, labelAt: 1,
+    // 날개가 몸통에서 떨어지는 자리 = 어깨 쪽 윗 절단면(y≈0.63). 예전 칼선은 날개 위를
+    // 비스듬히 가로지르고 오른쪽 끝은 고기 밖(x>0.41)이었다.
+    guide: [[-0.52, 0.58], [-0.2, 0.615], [0.1, 0.615], [0.36, 0.56]],
+    bones: [[[0.12, 0.58], [-0.25, 0.3]]] },
+  { id: 'drum', name: '북채', order: 2, prereq: [], weight: 120, price: 11000, pivot: [0.1, -1.52], sag: 0.2, labelAt: 1,
+    guide: [[-0.5, -1.5], [-0.1, -1.54], [0.3, -1.52], [0.6, -1.46]],
+    bones: [[[0.08, -1.58], [0.02, -1.94]]] },
+  { id: 'thigh', name: '넓적다리', order: 3, prereq: ['drum'], weight: 160, price: 12000, pivot: [0.3, -0.92], sag: 0.14, labelAt: 1,
+    guide: [[-0.26, -0.9], [0.15, -0.94], [0.55, -0.92], [0.8, -1.05]],
+    bones: [[[0.32, -0.98], [0.16, -1.44]]] },
+  { id: 'breast', name: '가슴', order: 4, prereq: ['wing'], weight: 220, price: 10000, pivot: [-0.34, 1.18], sag: 0.32, labelAt: 0.5,
+    guide: [[-0.5, 1.2], [-0.36, 0.86], [-0.34, 0.5], [-0.38, 0.12]],
+    bones: [] },
+  { id: 'tender', name: '안심', order: 5, prereq: ['breast'], weight: 40, price: 15000, pivot: [-0.2, 1.0], sag: 0.3, labelAt: 1,
+    guide: [[-0.16, 1.02], [-0.09, 0.6], [-0.12, 0.18]],
+    bones: [] }
+];
+
+/* ---------- PIG HALF CARCASS (hung by the hind hock; spine on +x, belly on -x; face +1 = skin side, -1 = split side) ---------- */
+const PP = {
+  // 부위 다각형 = "어디를 자르는가". 부위 모양은 블렌더로 불러온 실제 지육이 준다.
+  // 칼선에 해당하는 변만 정확하고, 바깥 변은 몸통 밖으로 넉넉히 뺀다
+  // (변이 실루엣에 정확히 닿으면 블렌더 불리언이 빈 조각을 낸다).
+  // 칼선: y=1.85 족 · y=0.55 뒷다리 · x=0.20 등심|삼겹살, 목심|앞다리 · y=-1.25 앞다리·목심
+  // tools/build_models.py의 PP와 같은 숫자여야 한다.
+  hock: [[0.6, 1.85], [1.35, 1.85], [1.35, 2.95], [0.6, 2.95]],
+  ham: [[-1.45, 0.55], [1.35, 0.55], [1.35, 1.85], [-1.45, 1.85]],
+  loin: [[0.2, 0.55], [1.35, 0.55], [1.35, -1.25], [0.2, -1.25]],
+  belly: [[-1.45, 0.55], [0.2, 0.55], [0.2, -1.25], [-1.45, -1.25]],
+  neck: [[0.2, -1.25], [1.35, -1.25], [1.35, -2.55], [1.15, -2.88], [0.72, -3.18], [0.58, -3.5], [0.2, -3.5]],
+  shoulder: [[-1.45, -1.25], [0.2, -1.25], [0.2, -3.5], [-1.45, -3.5]],
+  ribs: [[-1.45, 0.05], [0.26, 0.05], [0.26, -1.19], [-1.45, -1.19]],
+  tender: [[0.56, 0.5], [0.8, 0.5], [0.8, -0.62], [0.56, -0.62]]
+};
+const RIB_YS = [-0.1, -0.33, -0.56, -0.79, -1.02];
+const PIG_FACES = {
+  ham: (g, b) => { paintMeat(g, b, '#c0554e'); paintSeam(g, [[-0.45, 0.7], [-0.05, 1.0], [0.3, 1.3], [0.6, 1.62]]); paintSeam(g, [[-0.2, 0.62], [0.25, 0.95], [0.6, 1.1], [0.95, 1.15]]); paintBackfat(g, b, 0.95); paintBone(g, 0.78, 0.95, 0.07, 0.16, 0.2); paintBone(g, 0.42, 1.35, 0.11, 0.085, 0.5); },
+  hock: (g, b) => { paintMeat(g, b, '#c76a60', 200); paintBackfat(g, b, 1.04); paintBone(g, 0.95, 2.3, 0.07, 0.11); },
+  loin: (g, b) => { paintMeat(g, b, '#c45a51'); paintSeam(g, [[0.45, 0.5], [0.42, -0.35], [0.45, -1.2]], 0.016); paintBackfat(g, b, 0.96); paintVertebrae(g, 0.74, 0.96, -1.25, 0.55, 0.21); },
+  neck: (g, b) => { paintMeat(g, b, '#c25e56'); paintMarble(g, b, 340); paintBackfat(g, b, 0.95); paintVertebrae(g, 0.68, 0.9, -2.9, -1.25, 0.17); },
+  shoulder: (g, b) => {
+    paintMeat(g, b, '#bf5a52'); paintSeam(g, [[-0.95, -1.5], [-0.6, -2.0], [-0.65, -2.7]]); paintSeam(g, [[-0.12, -1.5], [-0.3, -2.1], [-0.15, -2.9]]);
+    g.fillStyle = '#ecdfc9'; g.beginPath(); g.moveTo(-0.15, -1.5); g.lineTo(-0.05, -1.68); g.lineTo(-0.38, -2.6); g.lineTo(-0.5, -2.5); g.closePath(); g.fill();
+    paintBone(g, -0.55, -3.25, 0.07, 0.09);
+  },
+  belly: (g, b) => {
+    paintMeat(g, b, '#d08a80', 300);
+    for (let i = 0; i < 26; i++) { g.strokeStyle = `rgba(250,238,226,${0.25 + R() * 0.3})`; g.lineWidth = 0.01 + R() * 0.02; const y = -1.2 + R() * 1.7; g.beginPath(); g.moveTo(-0.9, y); g.lineTo(0.2, y + (R() - 0.5) * 0.1); g.stroke(); }
+    for (let x = -1.14, i = 0; x < -0.86; x += 0.034, i++) { g.fillStyle = i % 2 ? '#b8473f' : '#f6eadf'; g.fillRect(x, -1.3, 0.034, 1.95); }
+  },
+  ribs: (g, b) => {
+    paintMeat(g, b, '#ad4b45', 300);
+    RIB_YS.forEach(y => {
+      g.strokeStyle = '#ecdfc9'; g.lineWidth = 0.075; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-0.86, y - 0.05); g.lineTo(0.22, y + 0.03); g.stroke();
+      g.strokeStyle = '#d8d3cc'; g.beginPath(); g.moveTo(-1.08, y - 0.07); g.lineTo(-0.86, y - 0.05); g.stroke();
+    });
+  },
+  tender: (g, b) => { paintMeat(g, b, '#c4525c', 260); for (let i = 0; i < 8; i++) { g.strokeStyle = 'rgba(235,235,245,.28)'; g.lineWidth = 0.01; const x = 0.59 + R() * 0.18; g.beginPath(); g.moveTo(x, 0.48); g.lineTo(x + (R() - 0.5) * 0.06, -0.6); g.stroke(); } }
+};
+const PIG_DEFS = [
+  { id: 'shoulder', name: '앞다리', order: 1, face: 1, saw: false, prereq: [], weight: 7200, price: 9000, pivot: [0.2, -1.25], sag: -0.08, labelAt: 0,
+    guide: [[-1.2, -1.25], [-0.5, -1.26], [0.2, -1.25], [0.21, -2.3], [0.2, -3.2]],
+    bones: [[[0.0, -1.5], [-0.35, -2.4]], [[-0.4, -2.55], [-0.5, -3.2]]] },
+  { id: 'neck', name: '목심', order: 2, face: 1, saw: true, prereq: ['shoulder'], weight: 2600, price: 18000, pivot: [0.95, -1.25], sag: 0.07, labelAt: 1,
+    guide: [[0.2, -1.25], [0.6, -1.26], [1.15, -1.25]],
+    bones: [[[0.85, -1.3], [0.7, -2.8]]] },
+  { id: 'tender', name: '안심', order: 3, face: -1, saw: false, prereq: [], weight: 650, price: 12000, pivot: [0.57, 0.5], sag: 0.1, labelAt: 0,
+    guide: [[0.56, 0.52], [0.56, -0.1], [0.57, -0.62], [0.68, -0.64], [0.78, -0.62]],
+    bones: [] },
+  { id: 'ribs', name: '갈비', order: 4, face: -1, saw: true, prereq: ['shoulder'], weight: 3100, price: 15000, pivot: [0.26, 0.05], sag: -0.06, labelAt: 0,
+    guide: [[-1.05, 0.05], [-0.4, 0.06], [0.26, 0.05], [0.27, -0.6], [0.26, -1.19]],
+    bones: RIB_YS.map(y => [[-0.8, y - 0.06], [0.2, y + 0.03]]) },
+  { id: 'belly', name: '삼겹살', order: 5, face: 1, saw: false, prereq: ['ribs'], weight: 6200, price: 23000, pivot: [0.2, 0.55], sag: -0.07, labelAt: 0,
+    guide: [[-0.9, 0.55], [-0.35, 0.56], [0.2, 0.55], [0.21, -0.35], [0.2, -1.25]],
+    bones: [] },
+  { id: 'loin', name: '등심', order: 6, face: 1, saw: true, prereq: ['belly', 'neck', 'tender'], weight: 4300, price: 11000, pivot: [1.05, 0.55], sag: 0.05, labelAt: 1,
+    guide: [[0.2, 0.55], [0.6, 0.56], [1.15, 0.55]],
+    bones: [[[0.9, 0.5], [0.88, -1.2]]], stamp: [0.6, -0.3] },
+  { id: 'ham', name: '뒷다리', order: 7, face: 1, saw: false, prereq: ['loin'], weight: 9400, price: 7000, pivot: [0.95, 1.85], sag: 0.05, labelAt: 1,
+    guide: [[0.65, 1.85], [0.95, 1.86], [1.2, 1.85]],
+    bones: [[[0.85, 0.65], [0.75, 1.4]], [[0.5, 1.55], [0.3, 1.0]]], stamp: [0.45, 1.15] }
+];
+/* ---------- 소·사슴: 받아온 돼지 몸통을 늘여 쓴다 ----------
+   무료 "손질된 지육" 모델은 돼지·닭 말고 라이선스가 맞는 게 없다 (docs/design.md의 결정).
+   소·사슴은 매다는 방식(뒷족 하나로 매달린 반 마리)이 같아서 돼지 실루엣 뼈대가 그대로 맞는다.
+   뼈·고리·관절도 돼지 좌표를 **같은 변형에 통과시켜** 뽑으므로 몸통과 어긋날 수 없다.
+   tools/build_models.py의 SHAPES와 **같은 숫자여야 한다** (고치면 둘 다). */
+const SHAPES = {
+  beef: { ymap: [[-3.45, -1.25, 0.10, 0.55, 1.85, 2.75], [-3.45, -1.45, -0.10, 0.60, 2.00, 2.75]],
+          xmul: [[-3.45, -1.25, 0.10, 1.00, 2.00, 2.75], [1.00, 1.10, 1.12, 1.14, 0.95, 0.88]] },
+  deer: { ymap: [[-3.45, -1.25, 0.10, 0.55, 1.85, 2.75], [-3.45, -1.70, -0.30, 0.45, 2.10, 2.95]],
+          xmul: [[-3.45, -1.25, 0.10, 1.00, 2.00, 2.95], [0.88, 0.86, 0.84, 0.86, 0.78, 0.72]] }
+};
+function lerpAt(t, v, x) {
+  if (x <= t[0]) return v[0];
+  for (let i = 0; i < t.length - 1; i++) if (x <= t[i + 1]) return v[i] + (x - t[i]) / (t[i + 1] - t[i]) * (v[i + 1] - v[i]);
+  return v[v.length - 1];
+}
+const rs = (k, x, y) => [x * lerpAt(...SHAPES[k].xmul, y), lerpAt(...SHAPES[k].ymap, y)];
+const rsPts = (k, pts) => pts.map(([x, y]) => rs(k, x, y));
+const rsSegs = (k, segs) => segs.map(s => rsPts(k, s));
+/* 부위 다각형. build_models.py의 lines()·derive()와 같은 결과여야 한다 —
+   단면 그림 캔버스와 블렌더가 깐 UV가 이 다각형의 bbox로 맞춰지기 때문이다. */
+function cutLines(k) {
+  const r = (x, y) => rs(k, x, y);
+  return { HOCK_Y: r(0, 1.85)[1], RUMP_Y: r(0, 0.55)[1], QUART_Y: r(0, 0.05)[1], NECK_Y: r(0, -1.25)[1],
+    RIB_Y0: r(0, -1.19)[1], MIDX: r(0.20, 0)[0], RIBX: r(0.26, 0)[0], HOCK_X0: r(0.60, 2.0)[0],
+    TX0: r(0.56, 0)[0], TX1: r(0.80, 0)[0], TY1: r(0, 0.50)[1],
+    NOTCH: [r(1.35, -2.55), r(1.15, -2.88), r(0.72, -3.18), r(0.58, -3.45)],
+    XL: -1.7, XR: 1.6, YB: -3.9, YT: 3.2 };
+}
+function derivePP(k) {
+  const L = cutLines(k), { XL, XR, YB, YT, MIDX, RIBX } = L;
+  const Q = L.QUART_Y, N = L.NECK_Y, RU = L.RUMP_Y, H = L.HOCK_Y;
+  const band = (x0, x1, y0, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  // 앞발굽을 피해 들어오는 등쪽 아래 띠 (발굽은 어느 부위에도 안 들어가 버려진다)
+  const spineLow = ytop => [[MIDX, ytop], [XR, ytop], ...L.NOTCH, [MIDX, YB]];
+  const galbi = band(XL, RIBX, L.RIB_Y0, Q);
+  if (k === 'beef') return {
+    shank: band(L.HOCK_X0, XR, H, YT), seoldo: band(XL, XR, RU, H),
+    udun: band(XL, MIDX, Q, RU), chaekkeut: band(MIDX, XR, Q, RU),
+    deungsim: band(MIDX, XR, N, Q), yangji: band(XL, MIDX, N, Q),
+    moksim: spineLow(N), apdari: band(XL, MIDX, YB, N),
+    galbi, ansim: band(L.TX0, L.TX1, Q, L.TY1) };
+  return { shank: band(L.HOCK_X0, XR, H, YT), hind: band(XL, XR, RU, H),
+    deungsim: spineLow(RU), apdari: band(XL, MIDX, YB, RU), galbi };
+}
+const BEEF_PP = derivePP('beef'), DEER_PP = derivePP('deer');
+
+/* 단면 그림. 돼지는 부위마다 손으로 그렸지만 소·사슴은 재료가 몇 가지뿐이라 조합으로 만든다.
+   소는 마블링이 특징이고, 사슴은 기름이 거의 없이 어둡고 결이 굵다. */
+function meatFace(color, o = {}) {
+  return (g, b) => {
+    paintMeat(g, b, color, o.grain || 520);
+    if (o.marble) paintMarble(g, b, o.marble);
+    (o.seams || []).forEach(s => paintSeam(g, s));
+    if (o.fat) paintBackfat(g, b, o.fat);
+    if (o.vert) paintVertebrae(g, o.vert[0], o.vert[1], o.vert[2], o.vert[3], o.vert[4]);
+    (o.bones || []).forEach(n => paintBone(g, n[0], n[1], n[2], n[3], n[4] || 0));
+    (o.ribs || []).forEach(y => {
+      g.strokeStyle = '#ecdfc9'; g.lineWidth = o.ribW || 0.085; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(o.ribX[0], y - 0.05); g.lineTo(o.ribX[1], y + 0.03); g.stroke();
+    });
+  };
+}
+const beefRibYs = RIB_YS.map(y => rs('beef', 0, y)[1]);
+const deerRibYs = RIB_YS.map(y => rs('deer', 0, y)[1]);
+/* ---------- 소 반 마리: 한국 대분할 10부위 중 9부위를 뗀다 (사태는 고리에 남는다) ---------- */
+const BEEF_FACES = {
+  shank: meatFace('#9c3a33', { grain: 220, bones: [[0.95, 2.45, 0.08, 0.12]] }),
+  seoldo: meatFace('#a8403a', { marble: 240, seams: [[[-0.5, 0.8], [-0.1, 1.2], [0.3, 1.6]]], bones: [[0.8, 1.2, 0.08, 0.17], [0.45, 1.6, 0.11, 0.09, 0.5]] }),
+  udun: meatFace('#ab423a', { marble: 200, seams: [[[-0.7, 0.0], [-0.4, 0.3], [-0.2, 0.55]]] }),
+  chaekkeut: meatFace('#a93f36', { marble: 420, fat: 1.0, vert: [0.72, 0.98, -0.15, 0.6, 0.2] }),
+  deungsim: meatFace('#a93f36', { marble: 460, fat: 1.0, vert: [0.72, 0.98, -1.45, -0.15, 0.2] }),
+  yangji: meatFace('#b5564a', { grain: 300, seams: [[[-0.9, -1.2], [-0.6, -0.8], [-0.8, -0.3]]], marble: 120 }),
+  moksim: meatFace('#9e3a33', { marble: 320, vert: [0.68, 0.94, -3.1, -1.45, 0.18] }),
+  apdari: meatFace('#a03a32', { marble: 140, seams: [[[-1.0, -1.7], [-0.65, -2.2], [-0.7, -2.9]]], bones: [[-0.55, -3.3, 0.08, 0.1]] }),
+  galbi: meatFace('#9c3832', { grain: 300, ribs: beefRibYs, ribX: [-0.96, 0.25] }),
+  ansim: meatFace('#b04a46', { grain: 260, marble: 90 })
+};
+const BEEF_DEFS = [
+  /* 사분 체절. 등뼈를 톱으로 끊는다 — 떨어지는 덩어리는 없고, 앞뒤를 따로 열어준다.
+     나머지 전부가 이걸 prereq로 걸어서 "먼저 반으로 나눈 뒤 해체한다"가 강제된다. */
+  { id: 'split', name: '사분 체절', order: 1, face: 1, saw: true, split: true, prereq: [], weight: 0, price: 0,
+    pivot: [0.6, -0.15], sag: 0, labelAt: 0.5,
+    guide: [[0.224, -0.15], [0.5, -0.14], [0.75, -0.15], [0.98, -0.14]], bones: [] },
+  { id: 'apdari', name: '앞다리', order: 2, face: 1, saw: false, prereq: ['split'], weight: 25000, price: 25000,
+    pivot: [0.224, -1.45], sag: -0.08, labelAt: 0,
+    guide: [[-1.15, -1.45], [-0.5, -1.44], [0.224, -1.45], [0.23, -2.4], [0.224, -3.3]],
+    bones: rsSegs('beef', [[[0.0, -1.5], [-0.35, -2.4]], [[-0.4, -2.55], [-0.5, -3.2]]]) },
+  { id: 'moksim', name: '목심', order: 3, face: 1, saw: true, prereq: ['apdari'], weight: 10000, price: 30000,
+    pivot: [0.95, -1.45], sag: 0.07, labelAt: 1,
+    guide: [[0.224, -1.45], [0.6, -1.44], [1.02, -1.45]], bones: [] },
+  { id: 'galbi', name: '갈비', order: 4, face: -1, saw: true, prereq: ['split'], weight: 18000, price: 45000,
+    pivot: [0.29, -0.17], sag: -0.06, labelAt: 0,
+    guide: [[-1.05, -0.17], [-0.45, -0.16], [0.29, -0.17], [0.3, -0.8], [0.29, -1.39]],
+    bones: [] },
+  { id: 'deungsim', name: '등심', order: 5, face: 1, saw: true, prereq: ['split', 'moksim'], weight: 18000, price: 60000,
+    pivot: [0.224, -0.8], sag: 0.05, labelAt: 1,
+    guide: [[0.224, -0.17], [0.23, -0.8], [0.224, -1.45]], bones: [], stamp: [0.62, -0.8] },
+  { id: 'yangji', name: '양지', order: 6, face: 1, saw: false, prereq: ['galbi', 'apdari', 'deungsim'], weight: 22000, price: 35000,
+    pivot: [0.224, -0.15], sag: -0.07, labelAt: 0,
+    guide: [[-1.05, -0.15], [-0.5, -0.14], [0.224, -0.15]], bones: [] },
+  { id: 'ansim', name: '안심', order: 7, face: -1, saw: false, prereq: ['split'], weight: 4000, price: 90000,
+    pivot: [0.63, 0.5], sag: 0.1, labelAt: 0,
+    guide: [[0.63, 0.5], [0.63, 0.1], [0.64, -0.15], [0.76, -0.17], [0.89, -0.15]], bones: [] },
+  { id: 'chaekkeut', name: '채끝', order: 8, face: 1, saw: true, prereq: ['split', 'ansim'], weight: 8000, price: 70000,
+    pivot: [1.0, 0.6], sag: 0.05, labelAt: 1,
+    guide: [[0.224, 0.6], [0.6, 0.61], [1.15, 0.6]], bones: [] },
+  { id: 'udun', name: '우둔', order: 9, face: 1, saw: false, prereq: ['chaekkeut'], weight: 12000, price: 28000,
+    pivot: [0.224, 0.6], sag: -0.06, labelAt: 0,
+    guide: [[-0.82, 0.6], [-0.3, 0.61], [0.224, 0.6], [0.23, 0.2], [0.224, -0.15]], bones: [] },
+  { id: 'seoldo', name: '설도', order: 10, face: 1, saw: false, prereq: ['udun'], weight: 20000, price: 26000,
+    pivot: [0.9, 2.0], sag: 0.05, labelAt: 1,
+    guide: [[0.75, 2.0], [0.88, 2.01], [1.02, 2.0]],
+    bones: rsSegs('beef', [[[0.85, 0.65], [0.75, 1.4]], [[0.5, 1.55], [0.3, 1.0]]]), stamp: [0.6, 1.3] }
+];
+/* ---------- 사슴: 톱을 안 쓴다. 뼈를 자르지 않고 근육 솔기를 따라 벗긴다 ---------- */
+const DEER_FACES = {
+  shank: meatFace('#96352f', { grain: 200, bones: [[0.74, 2.5, 0.06, 0.1]] }),
+  hind: meatFace('#932f2b', { grain: 420, seams: [[[-0.35, 0.7], [-0.05, 1.05], [0.25, 1.45]]], bones: [[0.62, 1.1, 0.06, 0.14]] }),
+  deungsim: meatFace('#8e2f2c', { grain: 460, seams: [[[0.3, 0.3], [0.28, -0.8], [0.3, -1.9]]], vert: [0.55, 0.76, -2.9, 0.45, 0.17] }),
+  apdari: meatFace('#92332e', { grain: 420, seams: [[[-0.75, -1.9], [-0.5, -2.4], [-0.55, -3.0]], [[-0.3, 0.0], [-0.45, -0.7], [-0.3, -1.4]]], bones: [[-0.45, -3.3, 0.06, 0.08]] }),
+  galbi: meatFace('#8a2d2a', { grain: 300, ribs: deerRibYs, ribX: [-0.72, 0.19], ribW: 0.055 })
+};
+const DEER_DEFS = [
+  { id: 'galbi', name: '갈비', order: 1, face: -1, saw: false, prereq: [], weight: 2200, price: 40000,
+    pivot: [0.22, -0.35], sag: -0.06, labelAt: 0,
+    guide: [[-0.78, -0.35], [-0.3, -0.34], [0.219, -0.35], [0.23, -1.0], [0.219, -1.64]], bones: [] },
+  { id: 'apdari', name: '앞다리', order: 2, face: 1, saw: false, prereq: ['galbi'], weight: 3500, price: 35000,
+    pivot: [0.168, 0.45], sag: -0.08, labelAt: 0,
+    guide: [[-0.62, 0.45], [-0.25, 0.46], [0.168, 0.45], [0.18, -0.9], [0.168, -2.2]],
+    bones: rsSegs('deer', [[[0.0, -1.5], [-0.35, -2.4]], [[-0.4, -2.55], [-0.5, -3.2]]]) },
+  { id: 'deungsim', name: '등심', order: 3, face: 1, saw: false, prereq: ['apdari'], weight: 2000, price: 80000,
+    pivot: [0.85, 0.45], sag: 0.05, labelAt: 1,
+    guide: [[0.168, 0.45], [0.5, 0.46], [0.84, 0.45]], bones: [], stamp: [0.45, -0.6] },
+  { id: 'hind', name: '뒷다리', order: 4, face: 1, saw: false, prereq: ['deungsim'], weight: 4000, price: 45000,
+    pivot: [0.74, 2.1], sag: 0.05, labelAt: 1,
+    guide: [[0.62, 2.1], [0.74, 2.11], [0.86, 2.1]],
+    bones: rsSegs('deer', [[[0.85, 0.65], [0.75, 1.4]], [[0.5, 1.55], [0.3, 1.0]]]) }
+];
+/* 부위 메시는 전부 models/*.glb에서 온다. 못 불러오면 빈 몸이 걸리고 화면에 안내가 뜬다. */
+/* ---------- 2차 소분할: 삼겹살 (docs/design.md "2차: 소분할") ----------
+   대분할 삼겹살 덩어리를 작업대 도마에 눕히고 위에서 내려다본다. 한 판에 두 단계다:
+   ① 소분할 부위 떼기 — 1차의 칼선 판정(decide/along/detach)을 그대로 쓴다.
+   ② 남은 속살을 정량으로 썰기 — 판정이 다르다. 주문한 두께에 얼마나 붙었나 + 팩 무게다.
+
+   **좌표를 x·y만 K배로 늘여 쓴다.** CAPTURE(0.32)·칼선 굵기·링 지름·샘플 간격이
+   전부 1차 지육 크기(7 단위)에 맞춘 상수다. 덩어리 원래 크기(1.8 단위)로 두면 칼선을
+   스치기만 해도 전부 잘린 것으로 쳐서 떼기가 성립하지 않는다. z(두께)는 **늘리지 않고
+   오히려 눌러서**(zk) 살을 칼선 평면(PICK_Z=1.1) 밑에 둔다 — 넘으면 가이드가 고기 속에 묻힌다.
+
+   **살이 있는 자리는 재서 넣는다.** CUT2의 rot·K·zk·t·box·band는 전부
+   `tools/probe_cuts.py`가 pig.glb를 위에서 쏘아 준 값이다 (손으로 고치지 말고 그걸 돌린다).
+   칼선이 살 밖으로 나가면 허공을 긋게 되고, 그건 화면을 봐도 바로 눈에 띄지 않는다. */
+const VIEW_PAD = 0.35;                 // 담는 자리 바깥 여백 (자리 단위)
+const BOARD_Z = 0.16;                  // 도마 윗면 로컬 z. 덩어리 바닥이 여기 놓인다
+const SLICE_MIN = 0.14;                // 이보다 얇게 썰면 토막이 아니다 (자리 단위)
+const TD_Y = -3.34, TD_Z = 0.2;        // 작업대(도마 윗면)의 세계 좌표. 1차 조리대를 그대로 쓴다
+const TD_TILT = 0.26;                  // 수직에서 살짝 기울인 각 — 칼자리 두께가 보인다
+const coreClip = new THREE.Plane(new THREE.Vector3(0, 0, -1), 99);   // 썰어 나간 만큼 덩어리를 깎는다
+/* 삼겹살은 x 3.86까지 얇은 뱃살 자락이 뻗어 있다. 2차는 이미 정형된 덩어리로 시작하니
+   잘라 둔다 — 쓸 수 없는 자락이 화면 폭의 절반을 먹어서 휴대폰에서 고기가 잘려 보였다.
+   자락이 없는 부위는 constant를 99로 두어 끈다 (reset()에서 cut.trim으로 넣는다). */
+const coreTrim = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 99);
+/* 덩어리 윗면. 1차의 단면 그림을 그대로 쓰면 **줄무늬 칠한 판**으로 보인다 — 지방 줄무늬는
+   '썬 자리'에 보이는 것이지 살 표면이 아니다. 표면에 보이는 건 결·마블링·지방 얼룩이다.
+   해상도도 1차의 3배로 뽑는다 (이 면 하나가 화면을 가득 채워서 300ppu면 번진다).
+   그림 좌표는 1차 삼겹살 다각형 좌표 그대로다 (UV가 거기에 맞춰져 있다 — 덩어리를 뒤집어도
+   UV는 안 따라 뒤집히므로 x가 거울처럼 보이는데, 살결에는 상관없다). */
+function paintBellyTop(g, b) {
+  g.fillStyle = '#b4544d'; g.fillRect(b.minX, b.minY, b.w, b.h);
+  // 넓은 색 얼룩. 색이 고르면 고기가 아니라 플라스틱으로 보인다
+  for (let i = 0; i < 70; i++) {
+    const x = b.minX + R() * b.w, y = b.minY + R() * b.h, r = 0.06 + R() * 0.22;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, R() < 0.55 ? 'rgba(126,54,48,.45)' : 'rgba(196,110,98,.3)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  // 근섬유 결 — 길이 방향(y)으로 흐른다
+  for (let i = 0; i < 1100; i++) {
+    const x = b.minX + R() * b.w, y = b.minY + R() * b.h, l = 0.04 + R() * 0.16;
+    g.strokeStyle = R() < 0.45 ? `rgba(148,68,60,${0.1 + R() * 0.25})` : `rgba(228,154,140,${0.08 + R() * 0.22})`;
+    g.lineWidth = 0.002 + R() * 0.004;
+    g.beginPath(); g.moveTo(x, y);
+    g.quadraticCurveTo(x + (R() - 0.5) * 0.03, y + l / 2, x + (R() - 0.5) * 0.05, y + l); g.stroke();
+  }
+  // 지방 자리 — 작고 길쭉하고 가장자리가 너덜너덜하다. 크고 매끈하면 스티커나 구멍으로 보인다
+  for (let i = 0; i < 150; i++) {
+    const x = b.minX + 0.04 + R() * (b.w - 0.08), y = b.minY + R() * b.h;
+    const rx = 0.008 + R() * 0.024, ry = rx * (1.8 + R() * 3);
+    g.fillStyle = `rgba(246,234,215,${0.3 + R() * 0.45})`;
+    g.beginPath();
+    for (let k = 0; k <= 12; k++) {
+      const a = k / 12 * Math.PI * 2, w = 0.6 + R() * 0.8;
+      const px = x + Math.cos(a) * rx * w, py = y + Math.sin(a) * ry * w;
+      k ? g.lineTo(px, py) : g.moveTo(px, py);
+    }
+    g.closePath(); g.fill();
+  }
+  // 마블링 — 지방이 살 사이로 파고든 가는 줄기
+  for (let i = 0; i < 420; i++) {
+    const x = b.minX + R() * b.w, y = b.minY + R() * b.h, l = 0.02 + R() * 0.09;
+    g.strokeStyle = `rgba(250,240,225,${0.25 + R() * 0.45})`;
+    g.lineWidth = 0.0025 + R() * 0.005;
+    g.beginPath(); g.moveTo(x, y);
+    g.quadraticCurveTo(x + (R() - 0.5) * 0.04, y + l * 0.5, x + (R() - 0.5) * 0.06, y + l); g.stroke();
+  }
+  // 은막 번들거림 (젖은 고기의 반사)
+  for (let i = 0; i < 10; i++) {
+    const x = b.minX + R() * b.w, y = b.minY + R() * b.h, r = 0.1 + R() * 0.14;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(255,250,242,.3)'); gr.addColorStop(1, 'rgba(255,250,242,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+}
+/* 받아온 덩어리는 윗면이 자로 민 듯 평평하고 옆면이 수직이라 **고기가 아니라 상자**로 보인다.
+   낮은 주파수로 꼭짓점을 밀어 윗면을 울퉁불퉁하게, 옆선을 구불구불하게 만든다.
+   - 미는 양이 자리(x·y)만의 함수라서, UV 이음새에서 겹쳐 있는 꼭짓점도 똑같이 움직인다 (안 찢어진다).
+   - 윗면 쪽에만 먹인다 (z로 가중치). 바닥까지 밀면 도마에서 뜨거나 잠긴다.
+   - 자르는 평면은 평면 그대로라 칼자리는 곧게 남는다 — 칼로 벤 자리는 원래 곧다. */
+function lumps(g) {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const k = Math.min(1, Math.max(0, (z - 0.28) / 0.34));          // 윗면 쪽일수록 1
+    p.setXYZ(i,
+      x + 0.06 * Math.sin(y * 1.7 + 0.6),
+      y + 0.05 * Math.sin(x * 2.1 - 1.2),
+      z + k * (0.075 * Math.sin(y * 1.3 + x * 0.8) + 0.05 * Math.sin(y * 2.9 - x * 1.7) + 0.03 * Math.sin(x * 2.4 + 1.3)));
+  }
+  p.needsUpdate = true;
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+}
+const topMatCache = {};
+/* 색 그림을 요철로도 쓴다. 밝은 쪽(지방)이 솟고 어두운 쪽(살)이 들어가는데, 고기가 딱 그렇다 —
+   요철 그림을 따로 그릴 이유가 없다. 부위마다 다각형이 달라 UV도 다르므로 부위별로 뽑는다. */
+function topMat(of, id) {
+  if (topMatCache[of + id]) return topMatCache[of + id];
+  const t = faceTex(CUTS[of][0][id], paintBellyTop, 900, 2048).t;
+  return topMatCache[of + id] = new THREE.MeshPhysicalMaterial({
+    map: t, bumpMap: t, bumpScale: 5,          // 그림이 고해상도라 UV 변화가 작다 — 1.6으로는 안 보였다
+    roughness: 0.38, clearcoat: 0.35, clearcoatRoughness: 0.35,
+    sheen: 0.5, sheenColor: new THREE.Color(0xffd6c8), envMapIntensity: 0.5
+  });
+}
+/* 떼는 부위는 **블렌더를 안 쓴다.** 막(갈매기살)·가로막살(토시살)·갈비 끝 연골(오돌삼겹)처럼
+   표면에 얇게 붙은 것이라 다각형을 그대로 밀어낸 판으로 충분하다 (썬 조각도 판이다 — 기획서의
+   결정. 모델 비용 0). 1차 대분할 부위만 .glb에서 온다. */
+/* 판 다각형: 자리(네모)만 적고 모양은 여기서 만든다. 부위마다 좌표 수십 개를 손으로 찍어
+   유지하는 것보다 낫고, 어차피 다각형은 "어디를 자르는가"만 맞으면 된다 (모양은 판이 준다).
+   **네모 안쪽으로만** 흔들린다 (k ≤ 1) — 재서 넣은 살자리를 넘으면 허공을 긋게 된다. */
+function blob(x0, y0, x1, y1) {
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+  const out = [];
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2;
+    const k = 0.88 + 0.08 * Math.sin(a * 3 + cx * 7) + 0.04 * Math.sin(a * 5 - cy * 5);
+    out.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]);
+  }
+  return out;
+}
+const strip = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+const PLATE_PP = {
+  gull:  [[1.45, 1.16], [1.28, 1.36], [0.25, 1.38], [0.03, 1.26], [0.00, 0.60], [0.20, 0.39], [1.25, 0.36], [1.45, 0.50]],
+  toshi: [[1.08, -0.14], [0.49, -0.07], [0.21, -0.18], [0.14, -0.63], [0.35, -0.98], [1.08, -0.95], [1.26, -0.56]],
+  odol:  (() => {
+    const out = [[-0.08, 1.40]];
+    for (let i = 0; i <= 18; i++) {                       // 바깥 변 — 연골이라 울퉁불퉁하다
+      const y = 1.40 - (1.40 + 4.00) * i / 18;
+      out.push([-0.42 - Math.abs(Math.sin(i * 1.7)) * 0.09, y]);
+    }
+    out.push([-0.08, -4.00]);
+    return out;
+  })()
+};
+const plateMat = {};
+/* 다각형을 밀어내 만든 판. 덩어리 윗면을 쏘아 그 자리 높이에 박아 넣는다 —
+   윗면이 평평하지 않아서 상수로 올리면 한쪽이 공중에 뜨거나 살에 잠긴다. */
+function plate(def, depth = 0.1) {
+  const poly = def.poly;
+  /* 베벨로 모서리를 둥글린다. 수직으로 깎인 판은 고기가 아니라 종이로 보인다.
+     그 다음 윗면을 조금 밀어 올려 부푼 살덩이로 만든다 (덩어리의 lumps()와 같은 이유). */
+  const g = new THREE.ExtrudeGeometry(new THREE.Shape(poly.map(([x, y]) => new THREE.Vector2(x, y))),
+    { depth, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.035, bevelSegments: 2 });
+  const q = g.attributes.position;
+  for (let i = 0; i < q.count; i++) {
+    const x = q.getX(i), y = q.getY(i), z = q.getZ(i);
+    if (z > depth * 0.5) q.setZ(i, z + 0.035 * Math.sin(y * 3.1 + x * 1.9) + 0.025 * Math.sin(x * 4.3));
+  }
+  q.needsUpdate = true; g.computeVertexNormals();
+  g.userData = {};                     // clone이 아닌 새 지오메트리 — 판이 끝나면 버린다
+  const cx = poly.reduce((a, v) => a + v[0], 0) / poly.length, cy = poly.reduce((a, v) => a + v[1], 0) / poly.length;
+  const top = surfaceZ(meshes.filter(m => m.userData.frame), cx, cy, 0) ?? 0.74;
+  g.translate(0, 0, top - depth + 0.055);
+  plateMat[def.id] ||= Object.assign(meatMat.clone(), {
+    color: new THREE.Color(def.tint), bumpMap: meatMat.map, bumpScale: 1.3, sheen: 0.4
+  });
+  return [new THREE.Mesh(g, plateMat[def.id])];
+}
+/* ---------- 2차 대상 부위 ----------
+   한 줄이 2차 '동물' 하나가 된다. rot·K·zk·t = 눕히는 변형, box = 그 결과 덩어리가 놓이는
+   자리, top = 덩어리 윗면 z, trim = 잘라 버리는 자락, band = 정량 썰기 띠.
+   **이 숫자들은 `tools/probe_cuts.py`가 pig.glb를 위에서 쏘아 준 값이다** — 손으로 바꾸면
+   칼선이 살 밖으로 나가고, 그건 화면을 봐도 금방 눈에 띄지 않는다. 모델을 다시 만들면 돌린다.
+
+   무게는 1차 부위 무게(PIG_DEFS)를 나눠 쓴다: 판 무게를 빼고, 띠 밖 끝동가리(rest.weight)를
+   빼고 남은 것이 썰 몫(g)이다. 그래서 2차 수율이 1차 부위 무게와 맞는다.
+
+   떼는 순서는 배열 순서다. 판 하나가 그 아래 것을 덮고 있으면 prereq로 묶는다
+   (갈매기살을 걷어야 토시살이 드러난다). saw: true 면 톱선(하늘색)이 된다. */
+const CUT2 = {
+  shoulder: {
+    sub: '대분할 앞다리 7.2kg · 네 부위로 가른다 (썰지 않는다)',
+    K: 1.86, zk: 1, t: [-0.33, 3.10, 0.922], box: [-0.70, -3.23, 1.75, 0.77], top: 0.80,
+    rest: { name: '앞다리살', price: 9000 },
+    plates: [
+      { id: 'kkuri', name: '꾸리살', box: [-0.45, -1.95, 0.35, -0.95], weight: 1100, price: 14000, tint: 0xbe5a50 },
+      { id: 'buchae', name: '부채살', box: [0.65, -0.60, 1.45, 0.35], weight: 600, price: 16000, prereq: ['kkuri'], tint: 0xc4635a },
+      { id: 'apsatae', name: '앞사태', box: [-0.60, -3.05, 0.00, -2.35], weight: 1200, price: 11000, tint: 0xb04c46 },
+      { id: 'hangjung', name: '항정살', box: [-0.55, 0.00, 0.30, 0.70], weight: 350, price: 30000, tint: 0xd08b7e }
+    ]
+  },
+  neck: {
+    sub: '대분할 목심 2.6kg · 가브리살을 떼고 구이용으로 썬다',
+    K: 2.30, zk: 1, t: [2.21, 4.18, 0.927], box: [-0.70, -3.75, 1.75, 1.30], top: 0.90,
+    rest: { name: '목심 끝동가리', price: 18000, weight: 500 },
+    plates: [
+      { id: 'gabri', name: '가브리살', box: [0.10, -1.50, 1.30, -0.40], weight: 350, price: 26000, tint: 0xc9736a }
+    ],
+    band: { x: [0.05, 1.60], y: [-2.60, 1.18], per: 4, pack: 700, price: 19000, label: '구이용 목살' }
+  },
+  tender: {
+    sub: '대분할 안심 0.65kg · 은막을 벗기고 메달리온으로 썬다',
+    K: 5.62, zk: 1, t: [4.35, -0.89, 0.760], box: [-0.15, -4.37, 1.20, 1.92], top: 0.76,
+    rest: { name: '안심 끝동가리', price: 12000, weight: 0 },
+    plates: [
+      { id: 'eunbak', name: '은막', box: [-0.05, -3.60, 0.35, 1.20], weight: 60, price: 2000, labelAt: 0.5, tint: 0xe8e2d4 }
+    ],
+    band: { x: [0.00, 1.05], y: [-4.24, 1.80], per: 5, pack: 250, price: 24000, label: '안심 메달리온' }
+  },
+  ribs: {
+    sub: '대분할 갈비 3.1kg · 마구리를 톱으로 치고 쪽갈비로 썬다',
+    rot: true, K: 1.98, zk: 1, t: [1.65, -0.39, 0.780], box: [-0.71, -2.57, 1.75, 0.12], top: 0.62,
+    rest: { name: '갈비 끝동가리', price: 15000, weight: 200 },
+    plates: [
+      { id: 'maguri', name: '갈비 마구리', poly: strip(-0.60, -0.35, 1.20, 0.10), saw: true, labelAt: 0.5,
+        guide: [[-0.60, -0.35], [0.30, -0.34], [1.20, -0.35]], weight: 500, price: 7000, tint: 0xd8cfc0 },
+      { id: 'deotsal', name: '갈비덧살', box: [-0.50, -2.30, 0.60, -1.50], weight: 400, price: 21000, tint: 0xc05a52 }
+    ],
+    band: { x: [-0.55, 1.60], y: [-2.20, -0.45], per: 4, pack: 900, price: 24000, label: '쪽갈비' }
+  },
+  belly: {
+    sub: '대분할 삼겹살 6.2kg · 네 부위를 떼고 통삼겹으로 썬다',
+    K: 3.5, zk: 0.98, t: [0, 0, 1.07], box: [-0.70, -4.38, 1.75, 1.93], top: 0.90, trim: 1.75,
+    rest: { name: '남은 덩어리', price: 18000, weight: 0 },
+    plates: [
+      { id: 'gull', name: '갈매기살', poly: PLATE_PP.gull, weight: 160, price: 28000, tint: 0xcf9c92 },
+      { id: 'toshi', name: '토시살', poly: PLATE_PP.toshi, weight: 110, price: 32000, prereq: ['gull'], tint: 0xb9525c },
+      { id: 'odol', name: '오돌삼겹', poly: PLATE_PP.odol, labelAt: 0.5, tint: 0xe6d9c6, weight: 700, price: 19000,
+        guide: [[-0.08, -4.00], [-0.08, -1.30], [-0.08, 1.40]] },
+      { id: 'michuri', name: '미추리살', box: [0.10, 1.44, 1.40, 1.86], labelAt: 0.5, weight: 500, price: 21000, tint: 0xc26a5e }
+    ],
+    band: { x: [-0.46, 1.70], y: [-4.30, 1.45], per: 5, pack: 1800, price: 25000, label: '구이용 통삼겹' }
+  },
+  loin: {
+    sub: '대분할 등심 4.3kg · 등심덧살을 떼고 돈카츠용으로 썬다',
+    K: 2.84, zk: 0.81, t: [2.32, -0.23, 0.899], box: [-0.70, -3.78, 1.75, 1.33], top: 0.90,
+    rest: { name: '등심 끝동가리', price: 11000, weight: 100 },
+    plates: [
+      { id: 'deotloin', name: '등심덧살', box: [0.25, -3.00, 0.70, 0.90], labelAt: 0.5, weight: 300, price: 26000, tint: 0xc76a60 }
+    ],
+    band: { x: [0.35, 1.65], y: [-3.65, 1.20], per: 6, pack: 1200, price: 14000, label: '돈카츠용 등심' }
+  },
+  ham: {
+    sub: '대분할 뒷다리 9.4kg · 네 부위로 가른다 (썰지 않는다)',
+    rot: true, K: 1.88, zk: 0.78, t: [-1.73, -1.51, 0.902], box: [-0.70, -3.04, 1.75, 0.58], top: 0.90,
+    rest: { name: '뒷다리살', price: 7000 },
+    plates: [
+      { id: 'boseob', name: '보섭살', box: [-0.50, -0.70, 0.20, 0.10], weight: 1600, price: 13000, tint: 0xbf5f55 },
+      { id: 'hongdu', name: '홍두깨살', box: [0.60, -1.30, 1.25, -0.40], weight: 1000, price: 12000, tint: 0xc26358 },
+      { id: 'dogani', name: '도가니살', box: [-0.55, -2.45, 0.10, -1.65], weight: 800, price: 14000, tint: 0xcb7268 },
+      { id: 'seolgit', name: '설깃살', box: [-0.65, -1.50, -0.10, -0.80], weight: 2000, price: 11000, tint: 0xb85550 }
+    ]
+  },
+  /* 족은 1차에서 떼지 않고 고리에 남는 덩어리다 (`pig.glb`의 pig_hock). 1차 부위가 아니라
+     PIG_DEFS에 줄이 없으니 이름·무게를 from이 준다. 뼈째 톱으로 토막내고, 무릎쪽 살만
+     칼로 발라낸다 — 끝이 가늘어지는 쐐기라 썰기 띠가 안 나온다 (앞다리·뒷다리와 같은 이유).
+     zk가 1을 넘는 유일한 부위다: 받아온 족은 두께가 0.22뿐이라 K로 6.5배 늘리면 전병이 된다. */
+  hock: {
+    from: { name: '족발', weight: 1300 },
+    sub: '고리에 남은 족 1.3kg · 세 토막으로 가른다 (썰지 않는다)',
+    K: 6.5, zk: 3.36, t: [6.54, -16.17, 2.334], box: [-0.70, -4.14, 1.75, 1.69], top: 0.90,
+    rest: { name: '족갑', price: 1000 },
+    plates: [
+      { id: 'hajok', name: '하족', poly: strip(-0.40, -0.90, 1.15, 0.20), saw: true, labelAt: 0.5, weight: 280, price: 7000, tint: 0xdcc9b4 },
+      { id: 'sangjok', name: '상족', poly: strip(-0.40, -2.45, 1.15, -1.15), saw: true, labelAt: 0.5, weight: 420, price: 9000, tint: 0xd6b9a2 },
+      { id: 'hindshank', name: '뒷사태', box: [-0.35, -3.95, 0.25, -2.75], weight: 450, price: 11000, tint: 0xbd5a4f }
+    ]
+  },
+  /* ---------- 소 ----------
+     1차 부위가 10~25kg이라 **띠 밖이 대부분이다**: 2팩만 썰고 나머지는 덩어리로 판다
+     (rest). 썰 몫 g는 팩의 2.6배로 잡아 한 토막 두께를 돼지와 같은 0.33~0.39로 맞췄다 —
+     g를 부위 무게 그대로 두면 한 토막이 몇 kg짜리가 된다.
+     **양지·설도·사태는 썰지 않는다** — probe가 준 썰기 띠가 2.0보다 짧다. 그 셋이 실제로도
+     토막이 아니라 부위로 갈리는 것들이다 (차돌박이·보섭살·아롱사태). */
+  beef_apdari: {
+    of: 'beef', part: 'apdari',
+    sub: '대분할 앞다리 25kg · 세 부위를 떼고 불고기용으로 썬다',
+    K: 1.71, zk: 1.15, t: [-0.32, 2.93, 1.038], box: [-0.70, -2.90, 1.75, 0.45], top: 0.90,
+    rest: { name: '앞다리살', price: 25000, weight: 16400 },
+    plates: [
+      { id: 'b_kkuri', name: '꾸리살', box: [-0.55, -2.35, 0.20, -1.45], weight: 2000, price: 32000, tint: 0xbe5a50 },
+      { id: 'b_buchae', name: '부채살', box: [0.25, -2.35, 0.90, -1.45], weight: 1500, price: 45000, tint: 0xc4635a },
+      { id: 'b_galbideot', name: '갈비덧살', box: [-0.55, -1.25, 0.20, -0.45], weight: 1200, price: 38000, tint: 0xb85550 }
+    ],
+    band: { x: [-0.64, 0.98], y: [-2.50, 0.39], per: 3, pack: 1500, price: 30000, label: '불고기용 앞다리' }
+  },
+  beef_moksim: {
+    of: 'beef', part: 'moksim',
+    sub: '대분할 목심 10kg · 떡심을 걷어내고 불고기용으로 썬다',
+    K: 2.26, zk: 1, t: [2.26, 4.31, 0.927], box: [-0.70, -3.48, 1.75, 1.03], top: 0.90,
+    rest: { name: '목심살', price: 30000, weight: 6480 },
+    plates: [
+      { id: 'b_tteoksim', name: '떡심', box: [0.60, -2.30, 1.10, 0.80], labelAt: 0.5, weight: 400, price: 3000, tint: 0xe8dcc4 }
+    ],
+    band: { x: [-0.13, 1.69], y: [-2.44, 0.97], per: 4, pack: 1200, price: 32000, label: '불고기용 목심' }
+  },
+  beef_galbi: {
+    of: 'beef', part: 'galbi',
+    sub: '대분할 갈비 18kg · 마구리를 치고 토시살·안창살을 떼고 꽃갈비로 썬다',
+    rot: true, K: 1.98, zk: 1.61, t: [2.05, -0.31, 1.158], box: [-0.70, -2.71, 1.75, 0.27], top: 0.90,
+    rest: { name: '갈비살', price: 45000, weight: 11500 },
+    plates: [
+      { id: 'b_maguri', name: '갈비 마구리', poly: strip(0.30, -0.10, 1.65, 0.20), saw: true, labelAt: 0.5, weight: 1500, price: 12000, tint: 0xd8cfc0 },
+      { id: 'b_toshi', name: '토시살', box: [-0.55, -1.20, 0.15, -0.40], weight: 600, price: 65000, tint: 0xb9525c },
+      { id: 'b_anchang', name: '안창살', box: [0.95, -2.30, 1.55, -1.50], weight: 500, price: 75000, tint: 0xa8474f }
+    ],
+    band: { x: [-0.64, 1.69], y: [-2.45, 0.21], per: 3, pack: 1500, price: 48000, label: '구이용 꽃갈비' }
+  },
+  beef_deungsim: {
+    of: 'beef', part: 'deungsim',
+    sub: '대분할 등심 18kg · 살치살을 떼고 꽃등심으로 썬다',
+    K: 2.82, zk: 0.95, t: [2.38, 1.03, 0.900], box: [-0.70, -3.06, 1.75, 0.61], top: 0.90,
+    rest: { name: '등심살', price: 60000, weight: 12880 },
+    plates: [
+      { id: 'b_salchi', name: '살치살', box: [0.90, -2.70, 1.60, -1.80], weight: 1200, price: 85000, tint: 0xc4635a },
+      { id: 'b_dmaguri', name: '등심 마구리', poly: strip(0.00, 0.20, 1.65, 0.52), saw: true, labelAt: 0.5, weight: 800, price: 15000, tint: 0xd8cfc0 }
+    ],
+    band: { x: [-0.33, 1.69], y: [-3.00, 0.55], per: 4, pack: 1200, price: 75000, label: '구이용 꽃등심' }
+  },
+  beef_ansim: {
+    of: 'beef', part: 'ansim',
+    sub: '대분할 안심 4kg · 은막을 벗기고 스테이크로 썬다',
+    K: 9.13, zk: 1.24, t: [7.47, -2.92, 0.901], box: [-0.70, -4.29, 1.75, 1.85], top: 0.90,
+    rest: { name: '안심 끝동가리', price: 70000, weight: 2290 },
+    plates: [
+      { id: 'b_eunbak', name: '은막', box: [1.00, -3.80, 1.55, 1.40], labelAt: 0.5, weight: 150, price: 3000, tint: 0xe8e2d4 }
+    ],
+    band: { x: [-0.64, 1.69], y: [-4.23, 1.79], per: 6, pack: 600, price: 95000, label: '안심 스테이크' }
+  },
+  beef_chaekkeut: {
+    of: 'beef', part: 'chaekkeut',
+    sub: '대분할 채끝 8kg · 등지방을 걷어내고 스테이크로 썬다',
+    rot: true, K: 3.27, zk: 0.81, t: [-0.21, -3.56, 0.900], box: [-0.70, -2.83, 1.75, 0.37], top: 0.90,
+    rest: { name: '채끝살', price: 70000, weight: 5060 },
+    plates: [
+      { id: 'b_deungjibang', name: '등지방', box: [-0.55, -2.70, 0.00, -0.25], labelAt: 0.5, weight: 600, price: 4000, tint: 0xf2ead8 }
+    ],
+    band: { x: [-0.64, 1.69], y: [-2.77, -0.17], per: 3, pack: 900, price: 75000, label: '채끝 스테이크' }
+  },
+  beef_udun: {
+    of: 'beef', part: 'udun',
+    sub: '대분할 우둔 12kg · 홍두깨살을 가르고 육회용으로 썬다',
+    rot: true, K: 3.27, zk: 1.11, t: [-0.21, 0.21, 1.167], box: [-0.70, -3.39, 1.75, 0.94], top: 0.90,
+    rest: { name: '우둔살', price: 28000, weight: 7400 },
+    plates: [
+      { id: 'b_hongdu', name: '홍두깨살', box: [0.80, -2.50, 1.55, -1.20], weight: 2000, price: 30000, tint: 0xc26358 }
+    ],
+    band: { x: [-0.64, 1.69], y: [-2.75, 0.88], per: 4, pack: 1000, price: 32000, label: '육회용 우둔' }
+  },
+  beef_yangji: {
+    of: 'beef', part: 'yangji',
+    sub: '대분할 양지 22kg · 세 부위로 가른다 (썰지 않는다)',
+    rot: true, K: 1.88, zk: 1.20, t: [2.03, -0.30, 1.091], box: [-0.70, -2.58, 1.75, 0.12], top: 0.90,
+    rest: { name: '양지머리', price: 35000 },
+    plates: [
+      { id: 'b_chadol', name: '차돌박이', box: [-0.55, -1.25, 0.15, -0.55], weight: 1500, price: 60000, tint: 0xd9a89c },
+      { id: 'b_upjin', name: '업진살', box: [0.30, -1.25, 1.00, -0.55], weight: 2000, price: 30000, tint: 0xc26a5e },
+      { id: 'b_chima', name: '치마살', box: [1.10, -1.25, 1.65, -0.55], weight: 1200, price: 55000, tint: 0xb04c46 }
+    ]
+  },
+  beef_seoldo: {
+    of: 'beef', part: 'seoldo',
+    sub: '대분할 설도 20kg · 네 부위로 가른다 (썰지 않는다)',
+    rot: true, K: 1.75, zk: 0.78, t: [-1.75, -1.50, 0.902], box: [-0.70, -3.11, 1.75, 0.66], top: 0.90,
+    rest: { name: '설깃머리살', price: 25000 },
+    plates: [
+      { id: 'b_boseob', name: '보섭살', box: [-0.55, -1.50, 0.10, -0.80], weight: 3000, price: 30000, tint: 0xbf5f55 },
+      { id: 'b_seolgit', name: '설깃살', box: [0.25, -1.50, 0.90, -0.80], weight: 4000, price: 24000, tint: 0xb85550 },
+      { id: 'b_dogani', name: '도가니살', box: [-0.55, -0.60, 0.10, 0.15], weight: 2500, price: 28000, tint: 0xcb7268 },
+      { id: 'b_samgak', name: '삼각살', box: [0.25, -0.60, 0.90, 0.15], weight: 1500, price: 35000, tint: 0xc4635a }
+    ]
+  },
+  /* 사태는 소의 고리에 남는 덩어리다 (돼지의 족과 같은 자리 — 1차 부위가 아니다). */
+  beef_shank: {
+    of: 'beef', part: 'shank',
+    from: { name: '사태', weight: 10000 },
+    sub: '고리에 남은 사태 10kg · 세 부위로 가른다 (썰지 않는다)',
+    K: 6.71, zk: 3.36, t: [6.59, -17.16, 2.337], box: [-0.70, -3.74, 1.75, 1.28], top: 0.90,
+    rest: { name: '앞사태', price: 25000 },
+    plates: [
+      { id: 'b_arong', name: '아롱사태', box: [0.15, -3.50, 0.80, -2.60], weight: 1200, price: 45000, tint: 0xbd5a4f },
+      { id: 'b_mungchi', name: '뭉치사태', box: [0.90, -3.50, 1.45, -2.60], weight: 2000, price: 30000, tint: 0xb04c46 },
+      { id: 'b_sangbak', name: '상박살', box: [0.15, -2.30, 0.80, -1.40], weight: 1500, price: 28000, tint: 0xc26358 }
+    ]
+  },
+  /* ---------- 사슴 ---------- */
+  deer_deungsim: {
+    of: 'deer', part: 'deungsim',
+    sub: '대분할 등심 2.0kg · 은막을 벗기고 메달리온으로 썬다',
+    K: 1.62, zk: 0.81, t: [1.56, 1.20, 0.900], box: [-0.23, -4.38, 1.29, 1.93], top: 0.90,
+    rest: { name: '등심 끝동가리', price: 75000, weight: 1160 },
+    plates: [
+      { id: 'd_eunbak', name: '은막', box: [0.95, -3.60, 1.20, -1.90], labelAt: 0.5, weight: 60, price: 3000, tint: 0xe8e2d4 }
+    ],
+    band: { x: [0.15, 1.23], y: [-3.69, -1.81], per: 3, pack: 300, price: 90000, label: '등심 메달리온' }
+  },
+  deer_apdari: {
+    of: 'deer', part: 'apdari',
+    sub: '대분할 앞다리 3.5kg · 두 부위를 떼고 불고기용으로 썬다',
+    K: 1.63, zk: 0.94, t: [-0.13, 1.19, 1.017], box: [-0.40, -4.38, 1.45, 1.92], top: 0.90,
+    rest: { name: '앞다리살', price: 35000, weight: 800 },
+    plates: [
+      { id: 'd_eokkae', name: '어깨살', box: [-0.25, -2.60, 0.45, -1.60], weight: 800, price: 38000, tint: 0xa8474f },
+      { id: 'd_apsatae', name: '앞사태', box: [0.55, -3.80, 0.95, -2.90], weight: 600, price: 30000, tint: 0xb04c46 }
+    ],
+    band: { x: [-0.34, 1.00], y: [-3.90, -1.50], per: 3, pack: 500, price: 40000, label: '불고기용 앞다리' }
+  },
+  deer_galbi: {
+    of: 'deer', part: 'galbi',
+    sub: '대분할 갈비 2.2kg · 등갈비를 치고 쪽갈비로 썬다',
+    K: 2.11, zk: 1.61, t: [-0.24, 0.87, 1.158], box: [-0.70, -2.59, 1.75, 0.13], top: 0.90,
+    rest: { name: '갈비 끝동가리', price: 35000, weight: 390 },
+    plates: [
+      { id: 'd_deunggalbi', name: '등갈비', poly: strip(0.30, -0.25, 1.45, 0.05), saw: true, labelAt: 0.5, weight: 500, price: 45000, tint: 0xd8cfc0 },
+      { id: 'd_galbisal', name: '갈비살', box: [-0.55, -1.60, 0.10, -0.80], weight: 400, price: 50000, tint: 0xa8474f }
+    ],
+    band: { x: [-0.64, 1.49], y: [-2.53, 0.07], per: 4, pack: 350, price: 48000, label: '쪽갈비' }
+  },
+  deer_hind: {
+    of: 'deer', part: 'hind',
+    sub: '대분할 뒷다리 4.0kg · 세 부위로 가른다 (썰지 않는다)',
+    K: 1.51, zk: 0.78, t: [0.71, -3.15, 0.902], box: [-0.69, -2.47, 1.75, 0.02], top: 0.90,
+    rest: { name: '뒷다리살', price: 45000 },
+    plates: [
+      { id: 'd_bolgi', name: '볼기살', box: [-0.35, -2.30, 0.25, -1.70], weight: 1200, price: 48000, tint: 0xa8474f },
+      { id: 'd_hongdu', name: '홍두깨살', box: [0.35, -2.30, 0.80, -1.70], weight: 800, price: 42000, tint: 0xb04c46 },
+      { id: 'd_dwitsatae', name: '뒷사태', box: [-0.35, -1.60, 0.25, -1.00], weight: 700, price: 32000, tint: 0xbd5a4f }
+    ]
+  },
+  /* 정강이는 사슴의 고리에 남는 덩어리다 (돼지의 족, 소의 사태와 같은 자리). */
+  deer_shank: {
+    of: 'deer', part: 'shank',
+    from: { name: '정강이', weight: 1200 },
+    sub: '고리에 남은 정강이 1.2kg · 살을 발라낸다 (썰지 않는다)',
+    K: 7.42, zk: 3.36, t: [5.96, -19.96, 2.337], box: [-0.57, -4.38, 1.62, 1.92], top: 0.90,
+    rest: { name: '정강이 뼈', price: 3000 },
+    plates: [
+      { id: 'd_satae', name: '사태살', box: [0.10, -4.10, 0.75, -3.20], weight: 450, price: 30000, tint: 0xb04c46 },
+      { id: 'd_himjul', name: '아킬레스 힘줄', box: [0.90, -4.10, 1.20, -0.50], labelAt: 0.5, weight: 80, price: 2000, tint: 0xeee6d6 }
+    ]
+  },
+  /* ---------- 닭 ----------
+     한 짝(A면)만 작업대에 올린다. 부위가 40~220g이라 팩도 작다 — 북채와 몸통뼈는
+     2차가 없다 (북채는 그대로 팔고 몸통뼈는 육수용이다). */
+  chicken_wing: {
+    of: 'chicken', part: 'wing',
+    sub: '대분할 날개 95g · 관절을 찾아 세 토막으로 가른다',
+    rot: true, K: 3.87, zk: 1.95, t: [-0.70, -0.85, 1.910], box: [-0.70, -3.19, 1.75, 0.73], top: 0.90,
+    rest: { name: '날개 자투리', price: 3000 },
+    plates: [
+      { id: 'c_bong', name: '봉', box: [-0.55, -2.80, 0.15, -2.00], weight: 35, price: 16000, tint: 0xe0b9a4 },
+      { id: 'c_wit', name: '윗날개', box: [0.25, -2.80, 0.95, -2.00], weight: 40, price: 14000, tint: 0xd9ae99 },
+      { id: 'c_kkeut', name: '날개끝', box: [-0.55, -1.80, 0.15, -1.10], weight: 12, price: 3000, tint: 0xeccfbb }
+    ]
+  },
+  chicken_thigh: {
+    of: 'chicken', part: 'thigh',
+    sub: '대분할 넓적다리 160g · 뼈와 껍질을 걷고 정육으로 썬다',
+    rot: true, K: 4.02, zk: 1.03, t: [5.43, -2.19, 0.916], box: [-0.70, -3.42, 1.75, 0.96], top: 0.90,
+    rest: { name: '다리살 끝동가리', price: 12000, weight: 6 },
+    plates: [
+      { id: 'c_dari_bone', name: '넓적다리뼈', box: [0.30, -3.20, 0.60, -0.90], labelAt: 0.5, weight: 30, price: 1000, tint: 0xeee6d6 },
+      { id: 'c_dari_skin', name: '다리 껍질', box: [0.90, -3.20, 1.60, -2.40], weight: 20, price: 5000, tint: 0xf0d9bd }
+    ],
+    band: { x: [-0.64, 1.69], y: [-3.36, -0.70], per: 2, pack: 40, price: 14000, label: '정육용 다리살' }
+  },
+  chicken_breast: {
+    of: 'chicken', part: 'breast',
+    sub: '대분할 가슴 220g · 껍질을 벗기고 포를 뜬다',
+    K: 3.46, zk: 1.48, t: [-1.87, -3.47, 0.926], box: [-0.70, -3.20, 1.75, 0.76], top: 0.90,
+    rest: { name: '가슴 끝동가리', price: 10000, weight: 39 },
+    plates: [
+      { id: 'c_ga_skin', name: '가슴 껍질', box: [0.70, -2.90, 1.20, -0.20], labelAt: 0.5, weight: 25, price: 5000, tint: 0xf0d9bd }
+    ],
+    band: { x: [-0.64, 1.28], y: [-3.14, 0.43], per: 2, pack: 60, price: 13000, label: '포 뜬 가슴살' }
+  },
+  chicken_tender: {
+    of: 'chicken', part: 'tender',
+    sub: '대분할 안심 40g · 힘줄만 뽑아낸다',
+    K: 6.72, zk: 1.47, t: [-0.89, -5.16, 0.924], box: [-0.38, -4.38, 1.42, 1.92], top: 0.90,
+    rest: { name: '안심살', price: 15000 },
+    plates: [
+      { id: 'c_himjul', name: '안심 힘줄', box: [0.45, -4.00, 0.70, 1.50], labelAt: 0.5, weight: 5, price: 500, tint: 0xf2ead8 }
+    ]
+  }
+};
+/* CUT2 한 줄의 출처: `of` = 어느 1차 동물, `part` = 그 동물의 어느 부위.
+   돼지는 둘 다 안 적는다 (줄 이름이 곧 부위 id다). 다른 동물은 부위 id가 겹칠 수 있어서
+   (닭 안심 ↔ 돼지 안심) 줄 이름을 `동물_부위`로 적고 여기서 풀어 쓴다. */
+const DEFS_OF = { chicken: CHICKEN_DEFS, pig: PIG_DEFS, beef: BEEF_DEFS, deer: DEER_DEFS };
+Object.entries(CUT2).forEach(([k, c]) => { c.of ||= 'pig'; c.part ||= k; });
+/* 2차 덩어리의 1차 부위. 고리에 남는 덩어리(족·사태)는 1차 부위가 아니라 from이 준다. */
+const srcOf = k => DEFS_OF[CUT2[k].of].find(p => p.id === CUT2[k].part) || CUT2[k].from;
+/* 1차 부위 -> 그 부위의 2차 줄 (1차 결과 화면의 "소분할로"가 쓴다) */
+const SUB_OF = {};
+Object.entries(CUT2).forEach(([k, c]) => { SUB_OF[`${c.of}:${c.part}`] = k; });
+/* ② 정량 썰기. y[0](아래 끝)에서 y[1](위 끝)로 한 줄씩 그어 올라간다.
+   무게는 두께에 비례한다고 본다 (ponytail: 실제 고기는 끝이 얇다. 자리별 무게가
+   필요해지면 surfaceZ로 단면을 재야 한다 — 위에서만 보는 화면이라 지금은 안 보인다).
+   per = 한 팩에 몇 토막이 들어가는 것을 주문 두께로 보는가. 가이드가 그 두께를 그려 준다. */
+let SL = null;                         // 지금 판의 썰기 수치 (CUT2[...].band에서 만든다)
+let slicing = null;
+/* 카메라가 담을 자리. 덩어리만이 아니라 **도마 위에 실제로 놓이는 것**을 다 담는다 —
+   비켜 둔 판(park)과 첫 팩을 쌓는 자리까지. 예전엔 box를 상수 하나(FILL 0.64)로 키웠는데,
+   비켜 갈 판이 없는 덩어리에도 똑같이 여백을 비워 둬서 세로 휴대폰에서 덩어리가 화면의
+   13%밖에 안 됐다. look이 box 가운데라 **가운데에서 먼 쪽**으로 잰다. */
+function fitBox(c, defs, sl) {
+  const [x0, y0, x1, y1] = c.box, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  let hx = (x1 - x0) / 2, hy = (y1 - y0) / 2;
+  defs.forEach(p => {
+    p.poly.forEach(q => {
+      hx = Math.max(hx, Math.abs(q[0] + p.park[0] - cx));
+      hy = Math.max(hy, Math.abs(q[1] + p.park[1] - cy));
+    });
+  });
+  // 첫 팩은 덩어리 위쪽 끝 바깥에 쌓인다 (둘째 팩은 이미 썬 자리라 띠 안이다 — addPiece)
+  if (sl) hy = Math.max(hy, y1 + 0.42 + 0.45 - cy);
+  return [2 * (hx + VIEW_PAD), 2 * (hy + VIEW_PAD)];
+}
+/* CUT2 한 줄 -> 2차 '동물' 하나. 카메라·주차 자리·썰기 수치는 box에서 뽑는다 (손으로 적을 값이 아니다). */
+function secondary(key) {
+  const c = CUT2[key], d = srcOf(key), src = c.part;
+  const [x0, y0, x1, y1] = c.box, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const defs = c.plates.map((p, i) => {
+    const poly = p.poly || blob(...p.box);
+    const px = poly.reduce((a, v) => a + v[0], 0) / poly.length;
+    const py = poly.reduce((a, v) => a + v[1], 0) / poly.length;
+    /* 떼고 나서 비켜 두는 자리 (떨어질 데가 없다). 도마 위 빈 데가 덩어리 양 끝이라
+       번갈아 보내는데, **덩어리만큼 긴 띠**(오돌삼겹·은막·등심덧살)를 끝으로 보내면 화면
+       밖으로 반쯤 나간다 — 그런 것은 옆으로 비킨다. 자리는 판의 네모 가운데로 잰다. */
+    const bx0 = Math.min(...poly.map(q => q[0])), bx1 = Math.max(...poly.map(q => q[0]));
+    const by0 = Math.min(...poly.map(q => q[1])), by1 = Math.max(...poly.map(q => q[1]));
+    const to = by1 - by0 > (y1 - y0) * 0.45
+      ? [x0 - (bx1 - bx0) / 2 - 0.3, cy]
+      : [cx + (i > 1 ? 0.8 : -0.2), i % 2 ? y0 - 0.3 - (by1 - by0) / 2 : y1 + 0.3 + (by1 - by0) / 2];
+    const def = {
+      ...p, order: i + 1, face: 1, saw: !!p.saw, prereq: p.prereq || [], labelAt: p.labelAt ?? 0,
+      pivot: [px, py], sag: 0, bones: [], poly, guide: p.guide || [...poly, poly[0]],
+      park: [to[0] - (bx0 + bx1) / 2, to[1] - (by0 + by1) / 2]
+    };
+    def.build = () => plate(def);
+    return def;
+  });
+  const pw = defs.reduce((a, p) => a + p.weight, 0);
+  const sl = c.band && { ...c.band, packs: 2, z: [BOARD_Z, c.top], g: d.weight - pw - (c.rest.weight || 0) };
+  if (sl) sl.rate = sl.g / (sl.y[1] - sl.y[0]);          // 1 단위 두께가 몇 g인가
+  return {
+    title: `${d.name} 소분할`, subtitle: `2차 소분할 · ${c.sub}`,
+    defs, mirrored: false, scale: 1, axisX: 0, faceNames: ['윗면', '아랫면'], frameId: src,
+    topdown: true, derivedFrom: c.of, src, cut: c, slice: sl, ideal: d.weight,
+    view: fitBox(c, defs, sl),
+    // 덩어리 가운데를 본다. 로컬 (x,y)는 세계 (x, -z)로 가므로 그대로 넘긴다
+    look: new THREE.Vector3(cx, TD_Y + BOARD_Z, TD_Z - cy),
+    joints: [], frameBones: [], hook: [], frame: noMesh,
+    remainder: { name: c.rest.name, price: c.rest.price, weight: sl ? (c.rest.weight || 0) : d.weight - pw },
+    profExtra: sl ? [{ id: 'slice', name: '정량 썰기', price: sl.price }] : [],
+    massRef: d.weight, spinK: 0, heavy: false, slot: () => ({ x: 0, z: 0 })
+  };
+}
+/* 덩어리 메시는 1차가 쓰는 pig.glb 그대로다. 재질은 복제한다 — 공유 재질에 자르는 평면을
+   걸면 1차 돼지의 같은 부위도 같이 깎인다. 복제한 것은 캐시한다 (disposeTree는 재질을
+   버리지 않으므로 판마다 새로 만들면 쌓인다). */
+const coreMat = new Map();
+function core(key) {
+  const c = CUT2[key], src = c.part;
+  /* 양면 대칭인 동물(닭)은 A면만 눕힌다 — 2차는 한 짝을 손질하는 것이다. */
+  return glbPick(c.of, `${c.of}_${src}` + (ANIMALS[c.of].mirrored ? '_A' : ''), src).map(m => {
+    /* y축으로 180° 돌려(= x·z 뒤집기) **살 쪽이 위로** 오게 눕힌다. 받아온 덩어리는
+       껍질이 +z(바깥 면)인데, 소분할은 껍질을 바닥에 깔고 살 쪽에서 한다.
+       거울이 아니라 회전이라 면의 앞뒤가 뒤집히지 않는다 — 그래서 x만 반대로 읽으면 된다
+       (다각형·band의 x가 전부 양수 쪽인 이유). rot은 긴 축을 화면 가로(y)로 돌리는 것. */
+    const g = m.geometry.clone();
+    if (c.rot) g.rotateZ(Math.PI / 2);
+    g.scale(-c.K, c.K, -c.zk);
+    g.translate(...c.t);
+    g.userData = {};
+    lumps(g);
+    // 살 쪽 면만 2차용 표면 그림으로 갈아 끼운다 (껍질 면은 바닥을 보고 있어 그대로 둔다).
+    // 자른 자리는 메시가 뚫려 있다 — 양면을 그려야 위에서 봤을 때 구멍으로 보이지 않는다
+    const face = CUTS[c.of] && m.material === cutFaceOf(c.of, src) ? topMat(c.of, src) : m.material;
+    let mat = coreMat.get(face);
+    if (!mat) {
+      mat = face.clone(); mat.clippingPlanes = [coreClip, coreTrim];
+      mat.clipShadows = true; mat.side = THREE.DoubleSide;
+      coreMat.set(face, mat);
+    }
+    return new THREE.Mesh(g, mat);
+  });
+}
+const noMesh = () => [];
+[...PIG_DEFS, ...CHICKEN_DEFS, ...BEEF_DEFS, ...DEER_DEFS].forEach(d => { d.build = noMesh; });
+
+/* ---------- animals ---------- */
+const ANIMALS = {
+  chicken: {
+    title: '닭 해체장', subtitle: '1차 대분할 · 정리된 지육 1마리 · 1.62kg',
+    defs: CHICKEN_DEFS, mirrored: true, scale: 1, axisX: 0, faceNames: ['A면', 'B면'], frameId: 'frame',
+    joints: [CJ.S, CJ.H, CJ.K], frameBones: [], frame: noMesh,
+    hook: [[0, 2.72], [0, 2.1], [-0.05, 1.82], [-0.32, 1.64], [-0.44, 1.44], [-0.26, 1.32], [-0.14, 1.44]],
+    remainder: { name: '몸통뼈', weight: 350, price: 2000 },
+    massRef: 160, spinK: 1, heavy: false,
+    slot: i => ({ x: -1.75 + (i % 5) * 0.875, z: i < 5 ? 0.5 : -0.45 })
+  },
+  pig: {
+    title: '돼지 해체장', subtitle: '1차 대분할 · 이분도체(반 마리) · 약 35kg',
+    defs: PIG_DEFS, mirrored: false, scale: 0.8, axisX: 0.95, faceNames: ['바깥 면', '안쪽 면'], frameId: 'hock',
+    boneAnyFace: true,  // 반 마리는 어느 면에서 봐도 같은 뼈에 걸린다
+    joints: [[0.95, 1.9]], frameBones: [[[0.95, 1.9], [0.95, 2.7]]], frame: noMesh,
+    hook: [[0, 2.74], [0.2, 2.6], [0.45, 2.38], [0.8, 2.26], [1.02, 2.32], [1.1, 2.46], [1.0, 2.54]],
+    remainder: { name: '족', weight: 1300, price: 5000 },
+    massRef: 9000, spinK: 0.3, heavy: true,
+    slot: i => ({ x: -1.65 + (i % 4) * 1.1, z: i < 4 ? 0.45 : -0.35 })
+  },
+  /* 소·사슴은 돼지 몸통을 늘여 쓴다. 고리·관절·뼈는 돼지 좌표를 같은 변형에 통과시킨 것. */
+  beef: {
+    title: '소 해체장', subtitle: '1차 대분할 · 이분도체(반 마리) · 약 160kg',
+    defs: BEEF_DEFS, mirrored: false, scale: 0.78, axisX: 0.9, faceNames: ['바깥 면', '안쪽 면'], frameId: 'shank',
+    boneAnyFace: true,
+    joints: [[0.9, 2.0]], frameBones: [[[0.9, 2.0], [0.9, 2.85]]], frame: noMesh,
+    hook: [[0, 2.74], [0.2, 2.6], [0.45, 2.38], [0.8, 2.26], [1.02, 2.32], [1.1, 2.46], [1.0, 2.54]],
+    remainder: { name: '사태', weight: 10000, price: 22000 },
+    massRef: 25000, spinK: 0.22, heavy: true,
+    slot: i => ({ x: -1.8 + (i % 5) * 0.9, z: i < 5 ? 0.5 : -0.4 })
+  },
+  deer: {
+    title: '사슴 해체장', subtitle: '1차 대분할 · 반 마리 · 약 13kg · 톱을 쓰지 않는다 · 산탄 3발',
+    defs: DEER_DEFS, mirrored: false, scale: 0.74, axisX: 0.74, faceNames: ['바깥 면', '안쪽 면'], frameId: 'shank',
+    boneAnyFace: true,
+    joints: [[0.74, 2.1]], frameBones: [[[0.74, 2.1], [0.74, 3.0]]], frame: noMesh,
+    hook: [[0, 2.74], [0.16, 2.6], [0.33, 2.38], [0.62, 2.26], [0.84, 2.32], [0.92, 2.46], [0.82, 2.54]],
+    remainder: { name: '정강이', weight: 1200, price: 25000 },
+    shot: 3,                           // 박힌 산탄 (사슴만). 떼기 전에 빼지 않으면 파지육
+    massRef: 4000, spinK: 0.45, heavy: false,
+    slot: i => ({ x: -1.5 + (i % 5) * 0.75, z: i < 5 ? 0.45 : -0.35 })
+  },
+};
+/* 2차 소분할은 같은 판정 엔진을 쓰지만 매달지 않고 작업대에 눕혀 위에서 본다 (topdown).
+   덩어리는 전부 pig.glb에서 오므로 따로 받을 .glb가 없다 (derivedFrom) — 그래서
+   CUT2 한 줄이 곧 '동물' 하나다. 1차 돼지 부위 7개가 그대로 2차 7종이 된다. */
+Object.keys(CUT2).forEach(k => { ANIMALS[k] = secondary(k); });
+
+/* ---------- 블렌더 모델 (.glb) ----------
+   부위 메시는 전부 여기서 온다. 못 읽으면(파일 없음, file://로 열어 막힘) 고기가 안 걸리고
+   안내 토스트만 뜬다 — 도형 폴백은 없다. .glb는 tools/build_models.py가 만든다.
+   .glb 좌표 = 게임 좌표라 칼선(guide)·판정은 손댈 게 없다. */
+const GLB_MAT = { skin: skinMat, meat: meatMat, pork_skin: porkSkinMat };  // .glb에 실제로 있는 재질만
+/* 반 마리 동물의 단면은 캔버스로 그린 그림을 부위 다각형에 맞춰 씌운다 (닭은 안 쓴다). */
+const CUTS = { pig: [PP, PIG_FACES], beef: [BEEF_PP, BEEF_FACES], deer: [DEER_PP, DEER_FACES] };
+const cutFaceMat = {};
+function cutFaceOf(key, id) {
+  const [pp, faces] = CUTS[key];
+  return cutFaceMat[`${key}:${id}`] ||= new THREE.MeshPhysicalMaterial({
+    map: faceTex(pp[id], faces[id]).t, roughness: 0.45, clearcoat: 0.55, clearcoatRoughness: 0.35, envMapIntensity: 0.45
+  });
+}
+const glbMeshes = {};
+/* reset()이 지난 판 지오메트리를 버릴 때 공유분은 남겨야 한다 (.glb·링 지오메트리는
+   매 판 다시 쓴다). 공유분에 표시를 해 두고, 표시 없는 것만 버린다. */
+[ringGeo, hoverGeo].forEach(g => { g.userData.shared = true; });
+function disposeTree(root) {
+  root.traverse(o => { if (o.isMesh && !o.geometry.userData.shared) o.geometry.dispose(); });
+}
+function glbPick(key, base, id) {
+  return glbMeshes[key].filter(m => m.name.startsWith(base))
+    .map(m => new THREE.Mesh(m.geometry, m.material.name === 'pork_meat' ? cutFaceOf(key, id) : (GLB_MAT[m.material.name] || meatMat)));
+}
+async function loadGLB(key) {
+  try {
+    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+    /* 받는 건 .glb가 아니라 **base64를 담은 .json**이다 (`tools/build_models.py`의 pack).
+       claude.ai 아티팩트가 바이너리 파일을 안 내줘서, 올려둔 사본에서는 .glb를 못 받는다 —
+       길을 둘로 두면 한쪽만 깨지니 로컬도 같은 걸 받는다. */
+    const b64 = await fetch(`models/${key}.json`).then(r => r.json());
+    const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const gltf = await new GLTFLoader().parseAsync(bin.buffer, '');
+    const list = [];
+    gltf.scene.updateMatrixWorld(true);
+    gltf.scene.traverse(o => { if (o.isMesh) { o.geometry.applyMatrix4(o.matrixWorld); o.geometry.userData.shared = true; list.push(o); } });
+    if (!list.length) throw new Error('메시가 없다');
+    glbMeshes[key] = list;
+    const a = ANIMALS[key];
+    a.defs.forEach(d => {
+      d.build = s => {
+        const out = glbPick(key, `${key}_${d.id}` + (a.mirrored ? (s > 0 ? '_A' : '_B') : ''), d.id);
+        if (d.stamp) out.push(stampAt(d.stamp[0], d.stamp[1], surfaceZ(out, d.stamp[0], d.stamp[1]) ?? 1));
+        return out;
+      };
+    });
+    a.frame = () => glbPick(key, `${key}_${a.frameId}`, a.frameId);
+    // 2차 덩어리는 전부 돼지 1차 부위를 눕혀 늘인 것이다
+    Object.entries(CUT2).forEach(([k, c]) => { if (c.of === key) ANIMALS[k].frame = () => core(k); });
+    return true;
+  } catch (e) {
+    console.warn(`[glb] ${key}: ${e.message}`);
+    return false;
+  }
+}
+
+/* ---------- 산탄 (사슴) ----------
+   박힌 납알과 들어간 상처. 상처는 빼내도 남는다 — 어디를 뺐는지 보이는 편이 낫다. */
+const SHOT_R = 0.3;                  // 눌러서 뺄 수 있는 거리 (휴대폰 손가락 기준 약 20px)
+const shotGeo = new THREE.SphereGeometry(0.07, 12, 8);
+const woundGeo = new THREE.CircleGeometry(0.15, 18);
+[shotGeo, woundGeo].forEach(g => { g.userData.shared = true; });
+/* 상처 자국은 깊이 검사를 끄고 그린다. 표면이 휘어 있어서 평평한 원반을 살짝 띄우는
+   것만으로는 반달처럼 잘려 보였다. */
+const woundMat = new THREE.MeshBasicMaterial({ color: 0x2b0c0a, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, depthTest: false });
+/* 납알은 상처 위에 겹쳐 그린다 — 안 그러면 상처에 가려 그냥 검은 구멍으로 보이고,
+   뺀 자리(상처만 남음)와 안 뺀 자리가 구별이 안 된다. transparent가 있어야 상처(투명)
+   보다 뒤에 그려진다 — renderOrder는 불투명/투명 묶음 안에서만 순서를 가른다. */
+const shotMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 1, roughness: 0.22, depthTest: false, transparent: true });
+
+/* ---------- game state ---------- */
+let animalKey = 'chicken', animal = ANIMALS.chicken;
+let swing = null, spin = null, parts = [], meshes = [], fallers = [], results = [];
+let facing = 1, flipping = false, flipFrom = 0, flipTo = 0, flipT = 0;
+let swingA = 0, swingW = 0, carcassHung = true;
+let state = 'intro', startTime = 0, endTime = 0, started = false;
+let stroke = null, hoverLocal = null, shakeT = 0, tool = 'knife', passSerial = 0, handSpeed = 0;
+/* 해체 흐름이 예약한 일들. reset()이 전부 취소한다 — 안 그러면 새로 걸어둔 지육에
+   지난 판의 dropRemainder/showResult가 꽂혀서 빈 트레이로 NaN 결과창이 뜬다. */
+let pending = [];
+const later = (fn, ms) => pending.push(setTimeout(fn, ms));
+let xp = store.get('butcher-xp-v2', {});
+
+const xpKey = id => `${animalKey}:${id}`;
+function levelFromXP(id) { const v = xp[xpKey(id)] || 0; let l = 0; XP_STEPS.forEach((t, i) => { if (v >= t) l = i; }); return l; }
+function levelOf(id) { return modeSel.value === 'auto' ? levelFromXP(id) : +modeSel.value; }
+function partOf(id, side) { return parts.find(p => p.def.id === id && (!animal.mirrored || p.side === side)); }
+function prereqMet(p) { return p.def.prereq.every(id => partOf(id, p.side).done); }
+const faceName = s => animal.faceNames[s > 0 ? 0 : 1];
+const defName = id => animal.defs.find(d => d.id === id).name;
+const fmtW = w => (w >= 1000 ? `${(w / 1000).toFixed(2)}kg` : `${w}g`);
+
+function buildCarcass() {
+  swing = new THREE.Group(); scene.add(swing);
+  spin = new THREE.Group(); spin.scale.setScalar(animal.scale);
+  if (animal.topdown) {
+    /* 2차: 고리에 매달지 않는다. 도마 위에 눕히고 위에서 내려다본다.
+       spin을 x축으로 -90° 돌려 '보는 면'(로컬 +z)이 위를 향하게 하면, 1차의 칼선·판정·
+       오버레이가 로컬 좌표 그대로 맞는다. 바꿀 것은 손가락을 받는 평면 하나뿐이다. */
+    swing.position.set(0, TD_Y, TD_Z);
+    spin.rotation.x = -Math.PI / 2; swing.add(spin);
+    pickPlane.normal.set(0, 1, 0);
+    pickPlane.constant = -(TD_Y + PICK_Z * animal.scale);
+    coreClip.constant = 99;                     // 썰기 전에는 덩어리를 깎지 않는다
+  } else {
+    swing.position.set(0, 2.78, 0);
+    const hookPts = animal.hook.map(([x, y]) => new THREE.Vector3(x, y - 2.78, 0));
+    const hookMesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hookPts), 80, 0.028, 10), steelMat);
+    hookMesh.castShadow = true; swing.add(hookMesh);
+    const trolley = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 24), steelMat);
+    trolley.rotation.x = Math.PI / 2; swing.add(trolley);
+    spin.position.set(0, -2.78, 0); swing.add(spin);
+    pickPlane.normal.set(0, 0, 1);
+    pickPlane.constant = -PICK_Z * animal.scale;
+  }
+  animal.frame().forEach(o => { spin.add(o); o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.userData.frame = true; meshes.push(m); } }); });
+
+  // 산탄은 부위에 아무렇게나 나눠 박힌다 (한 부위에 두 발도 들어간다)
+  const quota = {};
+  for (let i = 0; i < (animal.shot || 0); i++) {
+    const d = animal.defs[Math.floor(Math.random() * animal.defs.length)];
+    quota[d.id] = (quota[d.id] || 0) + 1;
+  }
+  if (animal.mirrored) { for (const s of [1, -1]) for (const d of animal.defs) parts.push(makePart(d, s)); }
+  else for (const d of animal.defs) parts.push(makePart(d, d.face, quota[d.id] || 0));
+  buildHandTool();                     // 손에 든 칼은 지육과 같은 로컬 좌표에 산다
+}
+
+function overlay(geo, mat, z, order) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.z = z; m.renderOrder = order; m.frustumCulled = false;
+  spin.add(m);
+  return m;
+}
+/* 가이드 한 벌: 실선·점선·양 끝 고리. 1차 칼선과 2차 썰기 줄이 같은 네 단계를 쓴다
+   (견습 실선 / 초보 점선 / 숙련 양 끝 / 장인 없음) — 만드는 곳도 보이는 곳도 한 군데다. */
+function guideSet(pts, mat, z) {
+  const ends = new THREE.Group(); ends.position.z = z; spin.add(ends);
+  [pts[0], pts[pts.length - 1]].forEach(([x, y]) => {
+    const r = new THREE.Mesh(ringGeo, mat); r.position.set(x, y, 0); r.renderOrder = 10; ends.add(r);
+  });
+  return { solid: overlay(ribbonMulti([pts], 0.035), mat, z, 10),
+           dashed: overlay(ribbonMulti(dashRuns(pts), 0.035), mat, z, 10), ends };
+}
+const showGuide = (g, lvl, vis) => {
+  g.solid.visible = vis && lvl === 0;
+  g.dashed.visible = vis && lvl === 1;
+  g.ends.visible = vis && lvl === 2;
+};
+
+/* ---------- 손에 든 칼 / 톱 ----------
+   칼이 안 보이면 고기에 자국만 생긴다 — 손짓이 칼질로 읽히지 않는다. 칼은 **spin의 로컬
+   좌표에** 둔다. 그러면 1차(옆에서)·2차(위에서)가 같은 식으로 맞는다 (칼선·오버레이와 같은
+   평면이고, 뒤집기·흔들림도 따라온다). 세 겹으로 나눈 이유:
+     rig   = 손이 있는 자리와 보는 면 (뒤집으면 칼도 반대쪽으로 넘어간다)
+     arm   = 나아가는 방향 (칼등이 뒤로, 칼끝이 앞으로)
+     blade = 그 방향으로 밀고 당기는 왕복 — 한 노드에 다 넣으면 왕복이 칼날을 안 따라간다. */
+function bladeShape(len, back, edge, teeth) {
+  const p = [[0, 0]];                              // 칼끝은 손가락 자리에 둔다
+  if (teeth) {                                     // 톱니 — 날 쪽을 삼각파로 긋는다
+    for (let i = 0; i <= teeth; i++) {
+      const x = -len * i / teeth;
+      p.push([x, edge + (i % 2 ? 0.055 : 0)]);
+    }
+  } else {
+    p.push([-len * 0.35, edge - 0.025], [-len, edge + 0.02]);   // 날은 살짝 배가 부르다
+  }
+  p.push([-len, back], [-len * 0.12, back - 0.02]);
+  const s = new THREE.Shape(p.map(([x, y]) => new THREE.Vector2(x, y)));
+  return new THREE.ExtrudeGeometry(s, { depth: 0.028, bevelEnabled: false });
+}
+const toolGeo = {
+  knife: bladeShape(1.42, 0.16, -0.10, 0),
+  saw: bladeShape(1.78, 0.2, -0.04, 24),
+  grip: new THREE.BoxGeometry(0.46, 0.15, 0.1),
+  bolster: new THREE.BoxGeometry(0.07, 0.19, 0.11)
+};
+Object.values(toolGeo).forEach(g => { g.userData.shared = true; });   // 판마다 다시 만들지 않는다
+let handRig = null, handArm = null, handBlade = null, handAt = null, handAng = -0.6, handPhase = 0, handLift = 0.24;
+function buildHandTool() {
+  handRig = new THREE.Group();
+  handArm = new THREE.Group(); handRig.add(handArm);
+  handBlade = new THREE.Group(); handArm.add(handBlade);
+  for (const t of ['knife', 'saw']) {
+    const g = new THREE.Group(); g.name = t;
+    const b = new THREE.Mesh(toolGeo[t], steelMat); b.castShadow = true; g.add(b);
+    const len = t === 'saw' ? 1.78 : 1.42;
+    const grip = new THREE.Mesh(toolGeo.grip, darkMat);
+    grip.position.set(-len - 0.23, 0.04, 0.014); grip.castShadow = true; g.add(grip);
+    const bol = new THREE.Mesh(toolGeo.bolster, steelMat);
+    bol.position.set(-len - 0.02, 0.04, 0.014); g.add(bol);
+    handBlade.add(g);
+  }
+  spin.add(handRig);
+}
+/* 칼을 손 자리로 옮기고, 가는 방향으로 돌리고, 끌고 있으면 왕복시킨다. */
+function moveHandTool(dt) {
+  const live = (state === 'play' || state === 'slice') && !flipping && carcassHung;
+  const cutting = !!(stroke && !stroke.dead && stroke.last);
+  const at = cutting ? stroke.last : (live ? hoverLocal : null);
+  handRig.visible = live && !!at;
+  handBlade.children.forEach(g => { g.visible = g.name === tool; });
+  if (!handRig.visible) { handAt = null; return; }
+  /* 방향은 **자르는 동안에만** 맞춘다. 그냥 손을 올려 둔 동안에도 쫓아 돌리면, 겨눌 데
+     없는 움직임마다 칼이 빙글거려서 보기가 사납다 — 들고 있는 칼은 각도가 그대로다.
+     그나마도 문턱을 넘는 움직임에만, 천천히 (손떨림마다 맞추면 손 위에서 돈다). */
+  if (cutting && handAt) {
+    const dx = at[0] - handAt[0], dy = at[1] - handAt[1];
+    if (Math.hypot(dx, dy) > 0.035) {
+      const a = Math.atan2(dy, facing * dx);
+      const d = ((a - handAng + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+      handAng += d * Math.min(1, dt * 6);          // 짧은 쪽으로
+    }
+  }
+  handAt = at;
+  handRig.position.set(at[0], at[1], facing * (PICK_Z + handLift));
+  handRig.rotation.y = facing > 0 ? 0 : Math.PI;   // 안쪽 면을 볼 때는 칼도 넘어간다
+  handArm.rotation.z = handAng;
+  /* 왕복은 **톱만** 한다. 칼은 손이 움직이는 것 자체가 칼질이라, 거기에 떨림을 더하면
+     칼이 손을 따라가는 게 아니라 혼자 춤을 춘다. 톱은 손이 빠를수록 크게 (소리와 같은 척도). */
+  const sawing = cutting && tool === 'saw';
+  handPhase += dt * (sawing ? 26 : 0);
+  handBlade.position.x = sawing ? Math.sin(handPhase) * (0.06 + 0.12 * Math.min(1, handSpeed / 1.2)) : 0;
+  // 들었다 내리는 것도 끊어 보내지 않는다
+  const ease = Math.min(1, dt * 8);
+  handLift += ((cutting ? 0.03 : 0.24) - handLift) * ease;
+  handBlade.rotation.x += ((cutting ? 0.22 : 0.5) - handBlade.rotation.x) * ease;
+}
+
+function makePart(def, s, shotN = 0) {
+  const g = new THREE.Group(); g.position.set(def.pivot[0], def.pivot[1], 0);
+  const inner = new THREE.Group(); inner.position.set(-def.pivot[0], -def.pivot[1], 0); g.add(inner);
+  const p = { def, side: s, group: g, done: false, damage: 0, devSum: 0, devN: 0, scratch: null, overlays: [] };
+  const built = def.build(s);
+  p.shotGroup = new THREE.Group(); g.add(p.shotGroup);
+  p.shot = shotN ? placeShot(p, built, shotN) : [];   // 메시가 아직 부모 없을 때 재야 로컬 z가 나온다
+  built.forEach(o => { inner.add(o); o.traverse(m => { if (m.isMesh) { m.castShadow = m.material !== stampMat; m.receiveShadow = true; m.userData.part = p; meshes.push(m); } }); });
+  spin.add(g);
+
+  const curve = new THREE.CatmullRomCurve3(def.guide.map(([x, y]) => new THREE.Vector3(x, y, 0)), false, 'centripetal');
+  const n = Math.max(8, Math.ceil(curve.getLength() / 0.02));
+  p.samples = curve.getSpacedPoints(n).map(v => [v.x, v.y]);
+  p.cut = new Uint8Array(p.samples.length); p.cutCount = 0;
+  p.hits = new Uint8Array(p.samples.length); p.lastPass = new Int32Array(p.samples.length).fill(-1);
+  const z = s * PICK_Z, gm = def.saw ? sawGuideMat : guideMat;
+  Object.assign(p, guideSet(p.samples, gm, z));
+  p.mid = p.samples[Math.floor(p.samples.length / 2)];
+  p.hover = overlay(hoverGeo, ringMat, z, 10); p.hover.position.x = p.mid[0]; p.hover.position.y = p.mid[1];
+  p.groove = overlay(new THREE.BufferGeometry(), grooveMat, z, 11);
+  p.incision = overlay(new THREE.BufferGeometry(), cutMat, z, 12);
+  p.overlays.push(p.solid, p.dashed, p.ends, p.hover, p.groove, p.incision);
+  p.scratchGroup = new THREE.Group(); g.add(p.scratchGroup);
+  p.label = document.createElement('div'); p.label.className = 'glabel'; p.label.hidden = true; labelsEl.appendChild(p.label);
+  return p;
+}
+
+/* 부위 다각형 안에 산탄을 박는다. 자리는 매 판 다르다 — 외워서 빼면 '찾기'가 아니다.
+   다각형 안인지는 점 포함 검사 대신 보는 면 표면을 쏘아 본다 (그 부위 메시만 쏘니 살에
+   맞으면 곧 그 부위 안이다). 칼선은 다각형 변에 있으니 변에서 넉넉히 들여놓는다. */
+function placeShot(p, built, n) {
+  const poly = (CUTS[animalKey] || [{}])[0][p.def.id];
+  if (!poly) return [];
+  const xs = poly.map(v => v[0]), ys = poly.map(v => v[1]), pad = SHOT_R + 0.1;
+  const x0 = Math.min(...xs) + pad, x1 = Math.max(...xs) - pad;
+  const y0 = Math.min(...ys) + pad, y1 = Math.max(...ys) - pad;
+  const out = [];
+  if (x1 <= x0 || y1 <= y0) return out;
+  for (let i = 0; i < n; i++) {
+    for (let t = 0; t < 20; t++) {
+      const x = x0 + Math.random() * (x1 - x0), y = y0 + Math.random() * (y1 - y0);
+      const z = surfaceZ(built, x, y, 0.004, p.side);
+      if (z === null) continue;
+      const w = new THREE.Mesh(woundGeo, woundMat);
+      w.position.set(x - p.def.pivot[0], y - p.def.pivot[1], z);
+      w.renderOrder = 11;
+      const b = new THREE.Mesh(shotGeo, shotMat);
+      b.position.copy(w.position); b.position.z += p.side * 0.03;
+      b.renderOrder = 12;
+      p.shotGroup.add(w, b);
+      out.push({ x, y, pellet: b, out: false });
+      break;
+    }
+  }
+  return out;
+}
+const shotLeft = () => parts.reduce((a, p) => a + (p.done ? 0 : p.shot.filter(s => !s.out).length), 0);
+/* 산탄은 칼질이 아니라 한 번 누르는 동작으로 뺀다. 칼선을 잡기 전에 먼저 본다. */
+function pullShot(q) {
+  let best = null, bd = SHOT_R;
+  for (const p of parts) {
+    if (p.done || p.side !== facing) continue;
+    for (const s of p.shot) {
+      if (s.out) continue;
+      const d = Math.hypot(s.x - q[0], s.y - q[1]);
+      if (d < bd) { bd = d; best = [p, s]; }
+    }
+  }
+  if (!best) return false;
+  best[1].out = true;
+  best[0].shotGroup.remove(best[1].pellet);
+  sfx.ping();
+  const left = shotLeft();
+  toast(left ? `산탄 하나 빼냈어요 · ${left}발 남았어요` : '산탄을 다 뺐어요', 'good');
+  updateHud();
+  return true;
+}
+
+/* ---------- picking ---------- */
+const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), tmpV = new THREE.Vector3();
+const pickPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -PICK_Z);
+function pick(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hit = raycaster.ray.intersectPlane(pickPlane, tmpV);
+  if (!hit) return null;
+  const l = spin.worldToLocal(hit.clone());
+  return [l.x, l.y];
+}
+function raycastLocal(q) {
+  const w = spin.localToWorld(new THREE.Vector3(q[0], q[1], facing * PICK_Z)).project(camera);
+  raycaster.setFromCamera(new THREE.Vector2(w.x, w.y), camera);
+  const live = meshes.filter(m => m.userData.frame || (m.userData.part && !m.userData.part.done));
+  const hits = raycaster.intersectObjects(live, false);
+  return hits.length ? { part: hits[0].object.userData.part || null, point: hits[0].point } : null;
+}
+function nearest(p, q) {
+  let bd = 1e9, bi = 0; const s = p.samples;
+  for (let i = 0; i < s.length; i++) { const dx = s[i][0] - q[0], dy = s[i][1] - q[1], d = dx * dx + dy * dy; if (d < bd) { bd = d; bi = i; } }
+  return { d: Math.sqrt(bd), i: bi };
+}
+function segX(a, b, c, d) {
+  const r1 = b[0] - a[0], r2 = b[1] - a[1], s1 = d[0] - c[0], s2 = d[1] - c[1];
+  const den = r1 * s2 - r2 * s1; if (Math.abs(den) < 1e-9) return null;
+  const t = ((c[0] - a[0]) * s2 - (c[1] - a[1]) * s1) / den, u = ((c[0] - a[0]) * r2 - (c[1] - a[1]) * r1) / den;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? [a[0] + t * r1, a[1] + t * r2] : null;
+}
+function hitsBone(a, b) {
+  const bones = carcassHung ? [...animal.frameBones] : [];
+  for (const p of parts) {
+    if (p.done || (!animal.boneAnyFace && p.side !== facing)) continue;
+    bones.push(...p.def.bones);
+  }
+  for (const [u, v] of bones) {
+    const I = segX(a, b, u, v);
+    if (I && animal.joints.every(j => Math.hypot(I[0] - j[0], I[1] - j[1]) > 0.16)) return true;
+  }
+  return false;
+}
+
+/* ---------- cutting ---------- */
+function sawingNow() { return tool === 'saw' && stroke.target && stroke.target.def && stroke.target.def.saw; }
+function consume(q) {
+  const prev = stroke.prev; stroke.prev = q;
+  if (stroke.target === null) {
+    if (prev && hitsBone(prev, q)) stroke.bonePending = true;
+    stroke.buf.push(q);
+    if (stroke.buf.length >= 7) decide();
+    return;
+  }
+  if (stroke.target === 'done') return;   // 이미 떨어졌다 — 더 끌어도 뼈 판정을 하지 않는다
+  if (!sawingNow() && prev && hitsBone(prev, q)) { boneHit(); return; }
+  if (stroke.target === 'stray') stray(q);
+  else along(stroke.target, q);
+  if (prev) swingW += facing * (q[0] - prev[0]) * 0.12 / (animal.heavy ? 4 : 1);
+}
+function decide() {
+  const buf = stroke.buf;
+  if (buf.length < 3) { stroke.target = 'done'; return; }
+  /* 같은 면의 칼선 두 개가 CAPTURE 안쪽으로 붙어 있으면 비율이 둘 다 1.00으로 나온다
+     (닭 가슴 ↔ 안심은 0.224 떨어져 있다). 동점일 때는 배열 순서가 아니라 **평균 거리가
+     가까운 선**을 집는다 — 순서로 집으면 안심을 그었는데 가슴이 떨어져 나갔다. */
+  let best = null, bf = 0, bd = 1e9;
+  for (const p of parts) {
+    if (p.done || p.side !== facing) continue;
+    let c = 0, sum = 0;
+    for (const q of buf) { const d = nearest(p, q).d; sum += d; if (d <= CAPTURE) c++; }
+    const f = c / buf.length, md = sum / buf.length;
+    if (f > bf + 1e-6 || (f > bf - 1e-6 && md < bd)) { bf = f; bd = md; best = p; }
+  }
+  if (best && bf >= 0.6) {
+    if (!prereqMet(best)) {
+      const need = best.def.prereq.filter(id => !partOf(id, best.side).done).map(defName).join(', ');
+      reject(`칼이 들어가지 않아요. ${need}부터 떼어내야 ${best.def.name}에 닿아요.`);
+      return;
+    }
+    if (best.def.saw && tool !== 'saw') { reject('이 선은 뼈를 지나요. 톱으로 바꾸세요 (W).'); return; }
+    if (!best.def.saw && tool === 'saw') { reject('톱은 뼈를 자를 때만 써요. 칼로 바꾸세요 (Q).'); return; }
+    if (!best.def.saw && stroke.bonePending) { boneHit(); return; }
+    stroke.target = best; buf.forEach(q => along(best, q));
+  } else {
+    if (stroke.bonePending) { boneHit(); return; }
+    stroke.target = 'stray'; buf.forEach(q => stray(q));
+  }
+  stroke.buf = [];
+}
+function sawMark(p, a, b) {
+  for (let j = Math.max(0, a); j <= Math.min(p.cut.length - 1, b); j++) {
+    if (p.lastPass[j] === stroke.pass) continue;
+    p.lastPass[j] = stroke.pass;
+    if (p.hits[j] < 255) p.hits[j]++;
+    if (p.hits[j] === SAW_PASSES) { p.cut[j] = 1; p.cutCount++; }
+  }
+}
+function along(p, q) {
+  if (stroke.target === 'done') return;
+  const { d, i } = nearest(p, q);
+  if (d <= CAPTURE) {
+    if (p.def.saw) {
+      // a pass ends when the saw reverses direction along the line
+      if (stroke.ext === undefined) { stroke.ext = i; stroke.dir = 0; }
+      let turned = 0;
+      if (stroke.dir === 0 && Math.abs(i - stroke.ext) > 3) stroke.dir = Math.sign(i - stroke.ext);
+      else if (stroke.dir > 0 && i < stroke.ext - 3) { stroke.dir = -1; stroke.pass = ++passSerial; turned = 1; }
+      else if (stroke.dir < 0 && i > stroke.ext + 3) { stroke.dir = 1; stroke.pass = ++passSerial; turned = 1; }
+      // a turn is only noticed 3 samples late, so credit the whole span back to the
+      // extremum — without this the line ends stay a pass behind and never cut
+      if (turned) sawMark(p, Math.min(i, stroke.ext) - 2, Math.max(i, stroke.ext) + 2);
+      stroke.ext = stroke.dir > 0 ? Math.max(stroke.ext, i) : stroke.dir < 0 ? Math.min(stroke.ext, i) : stroke.ext;
+      sawMark(p, i - 2, i + 2);
+      sfx.saw(handSpeed);
+    } else {
+      for (let j = Math.max(0, i - 2); j <= Math.min(p.cut.length - 1, i + 2); j++) if (!p.cut[j]) { p.cut[j] = 1; p.hits[j] = 1; p.cutCount++; }
+      sfx.slice(handSpeed);
+    }
+    p.devSum += d; p.devN++;
+    p.dirty = true;
+  } else {
+    p.damage += 0.02;
+    addScratch(p, q);
+  }
+  const f = p.cutCount / p.cut.length;
+  if (f > 0.55) {
+    const k = Math.min(1, (f - 0.55) / 0.4);
+    p.group.rotation.z = p.def.sag * k * 0.6;
+    p.group.position.z = p.side * (animal.heavy ? 0.04 : 0.1) * k;
+  }
+  if (f >= 0.94) { detach(p); stroke.target = 'done'; }
+}
+function stray(q) {
+  const h = raycastLocal(q);
+  if (!h) return;
+  if (h.part && h.part.side === facing) { h.part.damage += 0.02; addScratch(h.part, q, h.point); sfx.slice(handSpeed); }
+}
+function addScratch(p, q, worldPt) {
+  // spin 로컬에서 표면 쪽으로 띄운다. 세계 좌표에서 띄우면 뒤집었을 때(1차)와
+  // 눕혔을 때(2차) 띄우는 축이 달라져서 보정이 따로 필요했다.
+  const v = worldPt ? spin.worldToLocal(worldPt.clone()) : new THREE.Vector3(q[0], q[1], p.side * PICK_Z);
+  v.z += 0.02 * p.side;
+  const l = p.group.worldToLocal(spin.localToWorld(v));
+  if (!p.scratch || p.scratch.stroke !== stroke) {
+    p.scratch = { stroke, pts: [], mesh: new THREE.Mesh(new THREE.BufferGeometry(), scratchMat) };
+    p.scratch.mesh.renderOrder = 11; p.scratch.mesh.frustumCulled = false;
+    p.scratchGroup.add(p.scratch.mesh);
+  }
+  p.scratch.pts.push([l.x, l.y, l.z]);
+  p.scratch.mesh.geometry.dispose();
+  p.scratch.mesh.geometry = ribbonMulti([p.scratch.pts], 0.018);
+}
+function runsWhere(p, ok) {
+  const runs = []; let cur = [];
+  for (let i = 0; i < p.hits.length; i++) { if (ok(i)) cur.push(p.samples[i]); else if (cur.length) { runs.push(cur); cur = []; } }
+  if (cur.length) runs.push(cur);
+  return runs;
+}
+/* 칼선은 두 겹으로 그린다. 다 썰린 자리(cut)는 검게, 톱이 긋기만 한 자리(hits<SAW_PASSES)는
+   옅게. 톱선이 한 번 긋자마자 다 썰린 것처럼 보이던 걸 고치고, 왕복이 쌓이는 게 눈에 보인다.
+   칼선은 긋는 즉시 cut이라 예전과 같다. */
+function rebuildIncision(p) {
+  const w = p.def.saw ? 0.032 : 0.026;
+  p.incision.geometry.dispose();
+  p.incision.geometry = ribbonMulti(runsWhere(p, i => p.cut[i]), w);
+  p.groove.geometry.dispose();
+  p.groove.geometry = ribbonMulti(runsWhere(p, i => p.hits[i] && !p.cut[i]), w * 0.7);
+  p.dirty = false;
+}
+function reject(msg) { sfx.thunk(); toast(msg, 'warn'); shakeT = 0.18; stroke.dead = true; }
+function boneHit() { reject(tool === 'saw' ? '턱! 여기는 톱으로 자르는 선이 아니에요.' : '턱! 뼈에 걸렸어요. 관절 사이로 칼을 넣거나 뼈는 톱으로 자르세요.'); }
+
+/* ---------- detaching & falling ---------- */
+function gradeOf(p) {
+  const dev = p.devN ? p.devSum / p.devN : 0.12;
+  // 허용치는 실제 숙련도(경험치)로 가른다. 가이드 드롭다운을 손으로 내려 다시 켜도
+  // 판정이 같이 좁아지면 안 되고, '장인'을 직접 골라도 느슨해지면 안 된다.
+  const tf = 1 + 0.12 * levelFromXP(p.def.id);
+  const score = dev + p.damage * 0.06;
+  // bands split the deviation a stroke can actually survive: not CAPTURE (0.32) but the
+  // bone wall, which kills a stroke once the hand strays ~0.15 on average (~12px on a
+  // desktop screen). 완벽 is ~4px, 정상 ~9px, anything sloppier than that is 파지육.
+  const grade = score < 0.05 * tf ? '완벽' : score < 0.11 * tf ? '정상' : '파지육';
+  const acc = Math.max(0, Math.min(100, Math.round(100 - score / 0.15 * 100)));
+  const w = Math.round(p.def.weight * (1 - Math.min(0.2, dev * 1.2 + p.damage * 0.05)));
+  let won = grade === '파지육' ? w * 4 : w * p.def.price / 1000 * (grade === '완벽' ? 1.1 : 1);
+  const bonus = levelOf(p.def.id) === 3 && grade !== '파지육';  // 가이드를 안 띄우고 성공했을 때만
+  if (bonus) won *= 1.1;
+  return { grade, acc, w, won: Math.round(won / 10) * 10, bonus };
+}
+function launch(g, slot, vy, angK = 1) {
+  const y0 = g.position.y, target = TRAY_TOP + 0.25, G = 9.8;
+  const t = (vy + Math.sqrt(vy * vy + 2 * G * Math.max(0.1, y0 - target))) / G;
+  fallers.push({ g, v: new THREE.Vector3((slot.x - g.position.x) / t, vy, (slot.z - g.position.z) / t), w: new THREE.Vector3((R() - 0.5) * 5 * angK, (R() - 0.5) * 4 * angK, (R() - 0.5) * 5 * angK), landed: false, hit: false });
+}
+function detach(p) {
+  p.done = true;
+  rebuildIncision(p);
+  /* 사분 체절처럼 떨어질 덩어리가 없는 선. 등급·무게·트레이 없이 다음 칼선만 열어준다. */
+  if (p.def.split) {
+    sfx.tear();
+    toast(`${p.def.name} 완료 · 이제 앞뒤를 따로 해체해요`, 'good');
+  } else {
+    const r = gradeOf(p);
+    /* 산탄이 박힌 채 떼어낸 고기는 팔 수 없다 — 등급과 상관없이 다짐육 값으로 내려간다. */
+    const stuck = p.shot.filter(s => !s.out).length;
+    if (stuck) { r.grade = '파지육'; r.won = r.w * 4; r.bonus = false; }
+    const row = { id: p.def.id, name: p.def.name + (stuck ? ' (산탄)' : ''), side: animal.mirrored ? faceName(p.side) : '', ...r };
+    results.push(row);
+    if (animal.topdown) slideOff(p);
+    else {
+      scene.attach(p.group);
+      launch(p.group, animal.slot(results.length - 1), animal.heavy ? 0.5 : 1.1, animal.spinK);
+      swingW += (p.group.position.x > 0 ? -1 : 1) * p.def.weight / animal.massRef * 0.5 * facing;
+    }
+    xp[xpKey(p.def.id)] = (xp[xpKey(p.def.id)] || 0) + (r.grade === '완벽' ? 2 : r.grade === '정상' ? 1 : 0);
+    store.set('butcher-xp-v2', xp);
+    sfx.tear();
+    if (r.grade === '완벽') later(() => sfx.chime(), 150);   // reset()이 취소할 수 있어야 한다
+    toast(`${p.def.name} 분리 · ${r.grade}${stuck ? ' · 산탄이 박힌 채예요' : ''} · ${fmtW(r.w)}${r.bonus ? ' · 무가이드 보너스' : ''}`, r.grade === '파지육' ? 'warn' : 'good');
+    addTrayRow(row);
+    renderProf();
+  }
+  updateHud();
+  const left = parts.filter(x => !x.done);
+  if (!left.length) later(animal.topdown ? (animal.slice ? startSlicing : finishTopdown) : dropRemainder, 800);
+  else later(flipHint, 1500);
+}
+function flipHint() {
+  if (state !== 'play' || flipping) return;
+  const ready = parts.filter(x => !x.done && prereqMet(x));
+  if (ready.length && !ready.some(x => x.side === facing)) {
+    toast('이쪽 면에서는 더 할 게 없어요. 뒤집어서 반대쪽을 작업하세요.');
+    $('#flipBtn').classList.add('nudge');
+  }
+}
+function dropRemainder() {
+  if (state !== 'play') return;
+  carcassHung = false;
+  for (const p of parts) for (const o of p.overlays) spin.remove(o);
+  scene.attach(spin);
+  launch(spin, { x: 0, z: 0 }, 0.6, animal.spinK);
+  const rem = animal.remainder;
+  const row = { name: rem.name, side: '', grade: '뼈', acc: null, w: rem.weight, won: rem.weight * rem.price / 1000 };
+  results.push(row); addTrayRow(row);
+  endTime = performance.now();
+  state = 'done';
+  later(showResult, 1500);
+}
+
+/* ---------- 2차 ① 떼기: 비켜 두기 ---------- */
+/* 2차는 떨어질 데가 없다 (이미 작업대에 누워 있다). 떼어낸 부위는 도마 위 빈자리로 밀어 둔다. */
+function slideOff(p) {
+  const [dx, dy] = p.def.park;
+  fallers.push({
+    g: p.group, glide: 1, t: 0, landed: false, hit: false,
+    from: p.group.position.clone(),
+    to: new THREE.Vector3(p.group.position.x + dx, p.group.position.y + dy, p.group.position.z)
+  });
+}
+
+/* ---------- 2차 ② 정량 썰기 ----------
+   아래 끝에서부터 가로로 한 줄씩 그어 올라간다. 앞선 칼자리와의 간격이 두께이고,
+   두께가 곧 무게다. 가이드는 1차와 같은 4단계로 '구이용 두께' 자리를 그려 준다. */
+function startSlicing() {
+  if (state !== 'play') return;
+  const xs = [];
+  for (let i = 0; i <= 12; i++) xs.push([SL.x[0] + (SL.x[1] - SL.x[0]) * i / 12, 0]);
+  slicing = {
+    front: SL.y[0], ideal: SL.pack / SL.per / SL.rate, sum: 0, pieces: [], packs: [], pile: 0,
+    ...guideSet(xs, guideMat, PICK_Z),
+    edge: overlay(ribbonMulti([xs], 0.03), cutMat, PICK_Z, 10),
+    knife: overlay(new THREE.BufferGeometry(), cutMat, PICK_Z, 12)   // 손가락을 따라 벌어지는 칼자국
+  };
+  slicing.overlays = [slicing.solid, slicing.dashed, slicing.ends, slicing.edge, slicing.knife];
+  state = 'slice';
+  sfx.ping();
+  toast(`주문이 들어왔어요 — ${SL.label} ${fmtW(SL.pack)}씩 ${SL.packs}팩. 덩어리 끝에서부터 가로질러 한 줄씩 그어 썰어요.`, 'good');
+  updateHud();
+}
+/* 지금 그어야 할 두께. 팩이 거의 찼으면 남은 만큼만 얇게 썬다 — 실제로 정량을 맞추는
+   방법이 그것이고, 안 그러면 마지막 한 토막이 통째로 넘쳐 늘 20%씩 초과한다.
+   판정도 이 값과 견준다 (주문 두께가 아니라) — 안 그러면 정량을 맞춘 손이 손해를 본다. */
+function sliceWant() {
+  return Math.max(SLICE_MIN, Math.min(slicing.ideal, (SL.pack - slicing.sum) / SL.rate));
+}
+const SLICE_CROSS = 0.85;              // 덩어리 폭의 이만큼을 지나면 썰린 것으로 본다
+/* 지나간 경로가 **덩어리와 겹친** 폭. 경로의 x 폭만 재면 덩어리 옆 빈 도마를 길게 그어도
+   한 토막이 떨어진다 (폭의 75%만 지나면 자리는 아무 데나 됐다). 띠(SL.x)가 곧 살자리다. */
+function crossed(xs) {
+  const span = Math.min(Math.max(...xs), SL.x[1]) - Math.max(Math.min(...xs), SL.x[0]);
+  return span >= (SL.x[1] - SL.x[0]) * SLICE_CROSS;
+}
+function sliceClear() { slicing.knife.geometry.dispose(); slicing.knife.geometry = new THREE.BufferGeometry(); }
+/* 끄는 동안: 칼자국이 손가락을 따라 자라고, 칼질 소리가 이어지고, 덩어리를 다 가로지른
+   순간 토막이 떨어진다. 손을 뗄 때 한꺼번에 처리하면 써는 느낌이 전혀 안 난다. */
+function sliceDrag(q) {
+  const path = stroke.slice;
+  path.push(q);
+  slicing.knife.geometry.dispose();
+  slicing.knife.geometry = ribbonMulti([path], 0.055);
+  sfx.slice(handSpeed);
+  if (crossed(path.map(v => v[0]))) {
+    // 다 썰었다. 같은 손짓으로 두 번 썰리지 않게, 1차 칼질 경로로도 새지 않게 닫는다
+    stroke.slice = null; stroke.target = 'done';
+    sliceClear();
+    cutSlice(path);
+  }
+}
+/* 한 줄 긋기 = 한 토막. 칼이 덩어리를 가로질러야 썰리고, 앞선 칼자리보다 위여야 한다
+   (한쪽 끝에서부터 차례로 써는 게 실제 순서다 — 아무 데나 긋게 하면 두께 판정이 성립하지 않는다). */
+function cutSlice(pts) {
+  if (!slicing || pts.length < 2) return;
+  let l = pts[0], r = pts[0];
+  for (const q of pts) { if (q[0] < l[0]) l = q; if (q[0] > r[0]) r = q; }
+  if (!crossed(pts.map(v => v[0]))) { reject('덩어리를 가로질러 끝까지 밀어야 썰려요.'); return; }
+  const y = (l[1] + r[1]) / 2, tilt = Math.abs(l[1] - r[1]);   // 칼이 기울면 한쪽이 두껍다
+  const t = y - slicing.front;
+  if (t < SLICE_MIN) { reject(t <= 0 ? '이미 썬 쪽을 그었어요. 끝에서부터 차례로 썰어요.' : '너무 얇아요. 구이용 두께로 썰어요.'); return; }
+  if (y > SL.y[1]) { reject('덩어리 끝을 지나갔어요.'); return; }
+  const w = Math.round(t * SL.rate);
+  const want = sliceWant();
+  slicing.front = y; slicing.sum += w;
+  slicing.pieces.push({ t, tilt, w, want });
+  coreClip.constant = TD_Z - y;
+  addPiece(t, y);
+  sfx.tear();
+  // 남은 몫이 한 토막보다 얇으면 거기서 팩을 닫는다. 억지로 한 토막 더 얹으면
+  // 늘 넘치고, 정량을 맞출 방법이 아예 없어진다 (실제로도 거기서 손을 뗀다).
+  if (slicing.sum >= SL.pack || SL.pack - slicing.sum < SLICE_MIN * SL.rate || SL.y[1] - y < SLICE_MIN) closePack();
+  else { toast(`${fmtW(w)} · ${slicing.pieces.length}토막 · 이 팩 ${fmtW(slicing.sum)}/${fmtW(SL.pack)}`); updateHud(); }
+}
+/* 썬 조각은 모델을 만들지 않는다 (기획서의 결정). 단면 그림을 씌운 판을 썬 자리에서
+   꺼내 눕힌다 — 위에서 보면 비계와 살이 층층이 보인다. */
+function addPiece(t, y) {
+  const g = new THREE.Group(), bx = animal.cut.box;
+  const d = SL.z[1] - SL.z[0];
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(SL.x[1] - SL.x[0], t, d), CUTS[animal.derivedFrom] ? cutFaceOf(animal.derivedFrom, animal.src) : meatMat));
+  g.position.set((SL.x[0] + SL.x[1]) / 2, y - t / 2, SL.z[0] + d / 2);
+  spin.add(g);
+  fallers.push({
+    g, glide: 1, tip: 1, t: 0, landed: false, hit: false,
+    from: g.position.clone(),
+    // 첫 팩은 덩어리 위쪽 끝에, 둘째 팩은 이미 썰어 비운 아래쪽 도마에 쌓는다 (화면을 덜 먹는다)
+    to: new THREE.Vector3((bx[0] + bx[2]) / 2 + 0.1 + (R() - 0.5) * 0.14,
+      (slicing.packs.length ? bx[1] + 1.05 : bx[3] + 0.42) + (R() - 0.5) * 0.1, SL.z[0] + slicing.pile + t / 2)
+  });
+  // 쌓으면서 조금씩 눌린다. 두께만큼 그대로 올리면 다섯 토막이 덩어리보다 높은 탑이 된다
+  slicing.pile += t * 0.6;
+}
+/* 팩 판정: 주문한 두께에서 벗어난 정도(기운 칼은 한쪽이 두꺼우니 두께 오차로 센다) +
+   팩 무게가 주문에 얼마나 맞나. 1차의 "선을 얼마나 따라갔나"와 다른 재미는 이쪽이다. */
+function closePack() {
+  const ps = slicing.pieces, n = ps.length;
+  const u = ps.reduce((acc, q) => acc + Math.abs(q.t - q.want) + q.tilt * 0.8, 0) / n / slicing.ideal;
+  const e = Math.abs(slicing.sum - SL.pack) / SL.pack;
+  const tf = 1 + 0.12 * levelFromXP('slice');
+  const score = u + e * 1.5;
+  const grade = score < 0.14 * tf ? '완벽' : score < 0.34 * tf ? '정상' : '불량';
+  const acc = Math.max(0, Math.min(100, Math.round(100 - score * 170)));
+  let won = slicing.sum * SL.price / 1000 * (grade === '완벽' ? 1.1 : grade === '정상' ? 1 : 0.6);
+  if (levelOf('slice') === 3 && grade !== '불량') won *= 1.1;      // 가이드 없이 썰었을 때
+  const row = { name: `${slicing.packs.length + 1}팩 · ${n}토막`, side: '', grade, acc, w: slicing.sum, won: Math.round(won / 10) * 10, bonus: levelOf('slice') === 3 && grade !== '불량' };
+  results.push(row); addTrayRow(row); slicing.packs.push(row);
+  xp[xpKey('slice')] = (xp[xpKey('slice')] || 0) + (grade === '완벽' ? 2 : grade === '정상' ? 1 : 0);
+  store.set('butcher-xp-v2', xp);
+  sfx.tear();
+  if (grade === '완벽') later(() => sfx.chime(), 150);
+  toast(`${slicing.packs.length}팩 완성 · ${grade} · ${fmtW(slicing.sum)} · 두께 오차 ${Math.round(u * 100)}%`, grade === '불량' ? 'warn' : 'good');
+  renderProf(); updateHud();
+  if (slicing.packs.length >= SL.packs || SL.y[1] - slicing.front < SLICE_MIN * 2) {
+    state = 'done';                      // 더 썰 수 없다. 마무리는 눈으로 볼 틈을 두고 한다
+    later(finishTopdown, 1100);
+    return;
+  }
+  slicing.pieces = []; slicing.sum = 0; slicing.pile = 0;
+}
+/* 2차 마무리. 썰기가 있으면 띠에 남은 몫 + 띠 밖 끝동가리를, 썰기가 없는 부위(앞다리·뒷다리)는
+   판을 떼고 남은 덩어리를 한 줄로 넘긴다. 1차의 dropRemainder와 달리 떨어뜨릴 데가 없다. */
+function finishTopdown() {
+  const rem = animal.remainder;
+  const w = (slicing ? Math.round(Math.max(0, SL.y[1] - slicing.front) * SL.rate) : 0) + rem.weight;
+  if (w > 20) {
+    const row = { name: rem.name, side: '', grade: '덩어리', acc: null, w, won: Math.round(w * rem.price / 1000 / 10) * 10 };
+    results.push(row); addTrayRow(row);
+  }
+  // 오버레이는 지오메트리까지 버린다 — spin에서 빼 버리면 reset()의 disposeTree가 못 닿는다
+  if (slicing) { slicing.overlays.forEach(o => { spin.remove(o); disposeTree(o); }); slicing = null; }
+  endTime = performance.now();
+  state = 'done';
+  updateHud();
+  later(showResult, 1200);
+}
+
+/* 내려앉은 덩어리끼리 겹치면 옆으로 밀어낸다. 물리는 없고 착지할 때 한 번만 민다.
+   새로 떨어진 것만 밀면 그게 또 세 번째 덩어리를 파고들어서, 착지한 것 **전부**가 서로
+   반씩 물러나게 몇 번 돌린다 (소는 부위가 10개라 한쪽만 밀어선 자리가 안 났다).
+   ponytail: 바운딩 박스 반지름으로 어림잡는다 — 더 빽빽해지면 제대로 된 충돌로. */
+const LX = 2.25, LZ = 1.05;                  // 트레이 안쪽 한계
+function inTray(g) {
+  g.updateMatrixWorld(true); box.setFromObject(g);
+  g.position.x += Math.max(0, -LX - box.min.x) - Math.max(0, box.max.x - LX);
+  g.position.z += Math.max(0, -LZ - box.min.z) - Math.max(0, box.max.z - LZ);
+}
+function spread() {
+  const land = fallers.filter(f => f.landed);
+  const mid = g => { g.updateMatrixWorld(true); box.setFromObject(g);
+    return { x: (box.min.x + box.max.x) / 2, z: (box.min.z + box.max.z) / 2,
+             r: Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2 }; };
+  for (let pass = 0; pass < 6; pass++) {
+    const m = land.map(f => mid(f.g));
+    let moved = false;
+    for (let i = 0; i < land.length; i++) for (let j = i + 1; j < land.length; j++) {
+      const a = m[i], b = m[j];
+      const dx = a.x - b.x, dz = a.z - b.z, d = Math.hypot(dx, dz) || 0.001;
+      const need = (a.r + b.r) * 0.6;        // 고기는 네모가 아니라서 넉넉히 겹쳐도 된다
+      if (d >= need) continue;
+      const k = (need - d) / d / 2;          // 양쪽이 반씩 물러난다
+      land[i].g.position.x += dx * k; land[i].g.position.z += dz * k;
+      land[j].g.position.x -= dx * k; land[j].g.position.z -= dz * k;
+      a.x += dx * k; a.z += dz * k; b.x -= dx * k; b.z -= dz * k;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  // 트레이 밖으로 삐져나오면 들여놓는다. 덩어리 원점이 가운데가 아니라서 박스로 본다
+  land.forEach(f => inTray(f.g));
+}
+
+/* ---------- UI ---------- */
+let toastTimer = 0;
+function toast(msg, kind = '') {
+  toastEl.textContent = msg; toastEl.className = 'show ' + kind;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastEl.className = kind; }, 2200);
+}
+function stampHTML(g) {
+  const cls = g === '파지육' || g === '불량' ? 'stamp bad' : g === '뼈' ? 'stamp bone' : 'stamp';
+  return `<span class="${cls}">${g === '파지육' ? '파지' : g}</span>`;
+}
+function addTrayRow(r) {
+  $('#trayEmpty').hidden = true;
+  const li = document.createElement('li');
+  li.innerHTML = `<span>${r.name}${r.side ? ' <small style="color:var(--muted)">' + r.side + '</small>' : ''}</span><span class="w">${fmtW(r.w)}</span>${stampHTML(r.grade)}`;
+  $('#trayList').prepend(li);
+}
+function renderProf() {
+  $('#profList').innerHTML = animal.defs.concat(animal.profExtra || []).map(d => {
+    const v = xp[xpKey(d.id)] || 0, l = levelFromXP(d.id);
+    const next = XP_STEPS[l + 1], prev = XP_STEPS[l];
+    const pct = next === undefined ? 100 : Math.round((v - prev) / (next - prev) * 100);
+    return `<li><span>${d.name}</span><span class="bar"><i style="width:${pct}%"></i></span><span class="lvtxt"><span class="lv">${LEVELS[l]}</span></span></li>`;
+  }).join('');
+}
+function fmtTime(ms) { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function updateHud() {
+  const done = parts.filter(p => p.done).length;
+  $('#progress').textContent = `${done} / ${parts.length}`;
+  $('#sideBox').hidden = !!animal.topdown;        // 2차는 한 면만 본다
+  $('#sideLbl').textContent = faceName(facing);
+  $('#orderMeter').hidden = !slicing;
+  // 마지막 팩을 닫은 순간에도 3/2팩으로 넘어가지 않게 묶는다 (끝내는 건 1.1초 뒤다)
+  if (slicing) $('#orderV').textContent = `${Math.min(slicing.packs.length + 1, SL.packs)}/${SL.packs}팩 ${fmtW(slicing.sum)}`;
+  $('#shotMeter').hidden = !animal.shot;
+  if (animal.shot) $('#shotLeft').textContent = `${shotLeft()}발`;
+}
+function setTool(t) {
+  tool = t;
+  $('#toolKnife').setAttribute('aria-pressed', t === 'knife');
+  $('#toolSaw').setAttribute('aria-pressed', t === 'saw');
+  stageEl.style.cursor = t === 'saw' ? 'cell' : 'crosshair';
+}
+function showResult() {
+  const meat = results.filter(r => r.acc !== null);
+  const ideal = animal.ideal || parts.reduce((a, p) => a + p.def.weight, 0);
+  const good = results.filter(r => !['파지육', '불량', '뼈'].includes(r.grade)).reduce((a, r) => a + r.w, 0);
+  const acc = Math.round(meat.reduce((a, r) => a + r.acc, 0) / meat.length);
+  const won = results.reduce((a, r) => a + r.won, 0);
+  const perfect = meat.filter(r => r.grade === '완벽').length, bad = meat.filter(r => r.grade === '파지육').length;
+  $('#resultTitle').textContent = bad === 0 && perfect === meat.length ? '완벽한 해체' : bad === 0 ? '해체 완료' : `해체 완료 · 파지육 ${bad}개`;
+  $('#rYield').textContent = `${Math.round(good / ideal * 100)}%`;
+  $('#rAcc').textContent = `${acc}점`;
+  $('#rTime').textContent = fmtTime(endTime - startTime);
+  $('#rWon').textContent = `${Math.round(won).toLocaleString('ko-KR')}원`;
+  $('#rBody').innerHTML = results.map(r => `<tr><td>${r.name}${r.side ? ' · ' + r.side : ''}</td><td>${r.grade}${r.bonus ? ' +무가이드' : ''}</td><td class="num">${fmtW(r.w)}</td><td class="num">${r.acc === null ? '–' : r.acc}</td><td class="num">${Math.round(r.won).toLocaleString('ko-KR')}</td></tr>`).join('');
+  // 결과 점수는 따로 만들지 않는다 — 판매가가 곧 점수다 (수율과 등급이 이미 들어 있다).
+  // 시간은 기록만 남긴다. 시간을 점수에 넣으면 서두르게 되는데, 이 게임은 손맛이 먼저다.
+  const best = store.get('butcher-best-v1', {}), prev = best[animalKey] || 0, now = Math.round(won);
+  if (now > prev) { best[animalKey] = now; store.set('butcher-best-v1', best); }
+  $('#rBest').innerHTML = now > prev
+    ? `<b>신기록!</b> 이전 최고 ${prev ? prev.toLocaleString('ko-KR') + '원' : '없음'}`
+    : `최고 기록 <b>${prev.toLocaleString('ko-KR')}원</b>`;
+  /* 1차에서 성하게 뗀 부위는 그대로 2차 소분할로 넘긴다. **파지육은 넘기지 못한다** —
+     칼선을 크게 벗어난 덩어리는 모양이 안 나와서 다짐육으로 가는 게 이 게임의 규칙이고,
+     그 연결이 여기서만 산다 (기획서 M5). */
+  const to2 = $('#toCut2'); to2.innerHTML = '';
+  /* 고리에 남는 덩어리(족·사태)는 1차에서 떼지 않는다 — 늘 성해서 등급을 볼 것도 없이 넘어간다. */
+  const frameSub = SUB_OF[`${animalKey}:${animal.frameId}`];
+  const subs = animal.topdown ? [] : [
+    ...results.filter((r, i) => r.id && SUB_OF[`${animalKey}:${r.id}`]
+                                && results.findIndex(q => q.id === r.id) === i)      // 양면은 한 칩만
+             .map(r => ({ ...r, sub: SUB_OF[`${animalKey}:${r.id}`] })),
+    ...(frameSub ? [{ sub: frameSub, name: srcOf(frameSub).name, grade: '덩어리' }] : [])
+  ];
+  if (subs.length) {
+    const minced = subs.filter(r => r.grade === '파지육');
+    to2.insertAdjacentHTML('beforeend', '<span class="lbl">소분할로</span>');
+    subs.filter(r => r.grade !== '파지육').forEach(r => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = r.name;
+      b.addEventListener('click', () => startAnimal(r.sub));
+      to2.appendChild(b);
+    });
+    if (minced.length) to2.insertAdjacentHTML('beforeend',
+      `<span class="lbl">· 파지육 ${minced.length}개(${fmtW(minced.reduce((a, r) => a + r.w, 0))})는 다짐육으로</span>`);
+  }
+  $('#rPrices').textContent = '판매가 기준(원/kg): ' + [...animal.defs.filter(d => !d.split), ...(animal.profExtra || [])].map(d => `${d.name} ${d.price.toLocaleString('ko-KR')}`).concat(`${animal.remainder.name} ${animal.remainder.price.toLocaleString('ko-KR')}`, animal.topdown ? '불량 −40%' : '파지육 4,000').join(' · ') + '. 완벽 +10%, 가이드 없이 성공 +10%.';
+  $('#resultOv').hidden = false;
+}
+
+/* ---------- sound ---------- */
+let actx = null, noiseBuf = null, soundOn = true, lastSlice = 0, lastSaw = 0;
+function audio() {
+  if (actx) return actx;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    const len = actx.sampleRate * 0.6; noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  } catch (e) { actx = null; }
+  return actx;
+}
+function noise(dur, type, f0, f1, gain, q = 1) {
+  if (!actx || !soundOn) return;
+  const t = actx.currentTime, src = actx.createBufferSource(); src.buffer = noiseBuf;
+  const f = actx.createBiquadFilter(); f.type = type; f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = actx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(f).connect(g).connect(actx.destination); src.start(t, Math.random() * 0.4); src.stop(t + dur);
+}
+function tone(f0, f1, dur, gain, type = 'sine') {
+  if (!actx || !soundOn) return;
+  const t = actx.currentTime, o = actx.createOscillator(); o.type = type;
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = actx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+}
+const sfx = {
+  // 손이 느리면 길고 둔한 '스윽', 빠르면 짧고 날카로운 '싹'. v = 화면 px/ms
+  slice(v = 0.5) {
+    const n = performance.now(), k = Math.min(1, v / 1.6);
+    if (n - lastSlice < 90 - 45 * k) return; lastSlice = n;
+    noise(0.12 - 0.05 * k, 'bandpass', 1500 + 2200 * k + Math.random() * 500, 700, 0.12 + 0.16 * k, 1.3 + k);
+  },
+  saw(v = 0.5) {
+    const n = performance.now(), k = Math.min(1, v / 1.6);
+    if (n - lastSaw < 95) return; lastSaw = n;
+    noise(0.13, 'bandpass', 1800 + 700 * k + Math.random() * 500, 1100, 0.26 + 0.1 * k, 3);
+    tone(300 + 90 * k + Math.random() * 60, 280, 0.08, 0.03, 'sawtooth');
+  },
+  // 부위가 떨어지는 순간의 '뚝' (힘줄 끊기는 소리). 무거운 고기는 더 낮고 길게
+  tear() {
+    const h = animal.heavy;
+    noise(h ? 0.36 : 0.24, 'lowpass', h ? 1100 : 1700, h ? 140 : 260, h ? 0.45 : 0.3, 0.8);
+    tone(h ? 95 : 150, h ? 38 : 60, h ? 0.3 : 0.2, 0.22, 'triangle');
+  },
+  thunk() { tone(170, 55, 0.16, 0.5, 'triangle'); noise(0.05, 'bandpass', 3200, 1500, 0.35, 3); },
+  thud() { if (animal.heavy) { noise(0.26, 'lowpass', 600, 70, 0.9); tone(70, 38, 0.26, 0.5); } else { noise(0.16, 'lowpass', 900, 120, 0.55); tone(95, 50, 0.16, 0.3); } },
+  // 칼끝에 납알이 닿는 '틱'
+  ping() { tone(2600, 1900, 0.06, 0.07, 'square'); noise(0.05, 'bandpass', 4200, 2600, 0.2, 4); },
+  chime() { tone(880, 880, 0.25, 0.08); setTimeout(() => tone(1320, 1320, 0.3, 0.07), 90); }
+};
+
+/* ---------- input ---------- */
+const trail = [];
+const cv = renderer.domElement;
+function scr(e) { const r = trailCv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; }
+cv.addEventListener('pointerdown', e => {
+  closeSheet();
+  if (state === 'slice') {
+    const q = pick(e); if (!q) return;
+    cv.setPointerCapture(e.pointerId);
+    stroke = { slice: [q], dead: false, prev: null, buf: [], target: 'slice', last: q };
+    handSpeed = 0;
+    trail.length = 0; trail.push({ ...scr(e), dead: false });
+    return;
+  }
+  if (state !== 'play' || flipping || !carcassHung) return;
+  const q0 = pick(e);
+  if (q0 && pullShot(q0)) return;          // 산탄을 뺀 손짓은 칼질이 아니다
+  cv.setPointerCapture(e.pointerId);
+  if (!started) { started = true; startTime = performance.now(); }
+  stroke = { prev: null, target: null, dead: false, buf: [], bonePending: false, pass: ++passSerial };
+  handSpeed = 0;
+  trail.length = 0; trail.push({ ...scr(e), dead: false });
+  if (q0) consume(q0);
+  stroke.last = q0;
+});
+cv.addEventListener('pointermove', e => {
+  hoverLocal = state === 'play' ? pick(e) : null;
+  if (stroke && stroke.slice && !stroke.dead) {
+    trail.push({ ...scr(e), dead: false });
+    if (trail.length > 1) {
+      const a0 = trail[trail.length - 2], b0 = trail[trail.length - 1];
+      handSpeed = Math.hypot(b0.x - a0.x, b0.y - a0.y) / Math.max(10, b0.t - a0.t);
+    }
+    const q = pick(e);
+    if (q) { stroke.last = q; sliceDrag(q); }
+    return;
+  }
+  if (!stroke || stroke.dead) return;
+  trail.push({ ...scr(e), dead: false });
+  if (trail.length > 1) {   // 소리 세기를 손 속도에 맞추려고 재 둔다 (px/ms)
+    const a0 = trail[trail.length - 2], b0 = trail[trail.length - 1];
+    handSpeed = Math.hypot(b0.x - a0.x, b0.y - a0.y) / Math.max(10, b0.t - a0.t);
+  }
+  const p = pick(e); if (!p) return;
+  const a = stroke.last;
+  if (a) {
+    const n = Math.max(1, Math.ceil(Math.hypot(p[0] - a[0], p[1] - a[1]) / 0.02));
+    for (let i = 1; i <= n && !stroke.dead; i++) consume([a[0] + (p[0] - a[0]) * i / n, a[1] + (p[1] - a[1]) * i / n]);
+  } else consume(p);
+  stroke.last = p;
+  if (stroke.dead) trail.forEach(t => { t.dead = true; });
+});
+/* cancelled = 손을 뗀 게 아니라 포인터를 빼앗겼다 (휴대폰에서 OS 제스처·팜 리젝트).
+   판정하면 안 된다 — 덜 썬 경로로 "가로질러 밀어야 썰려요" 경고가 떠서, 자기가 하지도
+   않은 칼질을 꾸중받는다. */
+function endStroke(cancelled) {
+  if (!stroke) return;
+  if (stroke.slice) sliceClear();
+  // 다 가로지르면 끄는 중에 이미 썰렸다 (stroke.slice 가 비워진다). 여기 남아 있으면 덜 썬 것
+  if (cancelled) { /* 버린다 */ }
+  else if (stroke.slice) { if (!stroke.dead) cutSlice(stroke.slice); }
+  else if (!stroke.dead && stroke.target === null) decide();
+  if (stroke && stroke.dead) trail.forEach(t => { t.dead = true; });
+  stroke = null;
+}
+cv.addEventListener('pointerup', () => endStroke());
+cv.addEventListener('pointercancel', () => endStroke(true));
+cv.addEventListener('pointerleave', () => { hoverLocal = null; });
+
+function flip() {
+  if (animal.topdown || state !== 'play' || flipping || stroke || !carcassHung) return;
+  flipping = true; flipFrom = spin.rotation.y; flipTo = flipFrom + Math.PI; flipT = 0;
+  $('#flipBtn').classList.remove('nudge');
+  swingW += 0.15;
+}
+$('#flipBtn').addEventListener('click', flip);
+$('#toolKnife').addEventListener('click', () => setTool('knife'));
+$('#toolSaw').addEventListener('click', () => setTool('saw'));
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('select')) return;
+  if (e.code === 'Space') { e.preventDefault(); flip(); }
+  else if (e.code === 'KeyQ') setTool('knife');
+  else if (e.code === 'KeyW' && animal.defs.some(d => d.saw)) setTool('saw');
+});
+$('#soundBtn').addEventListener('click', e => {
+  soundOn = !soundOn; e.currentTarget.textContent = soundOn ? '소리 켜짐' : '소리 꺼짐'; e.currentTarget.setAttribute('aria-pressed', soundOn);
+});
+/* 2차 고르는 자리는 CUT2에서 만든다 — 부위를 넣고 HTML을 또 고치는 걸 잊지 않게. */
+Object.keys(DEFS_OF).forEach(of => {
+  const rows = Object.keys(CUT2).filter(k => CUT2[k].of === of);
+  if (!rows.length) return;
+  const who = ANIMALS[of].title.replace(' 해체장', '');
+  $('#cut2Opts').insertAdjacentHTML('beforeend',
+    rows.map(k => `<option value="${k}">${who} ${srcOf(k).name} 소분할</option>`).join(''));
+  $('#cut2Picks').insertAdjacentHTML('beforeend', `<span class="lbl">${who}</span>`);
+  rows.forEach(k => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.animal = k; b.textContent = srcOf(k).name;
+    b.title = ANIMALS[k].subtitle;
+    $('#cut2Picks').appendChild(b);
+  });
+});
+function startAnimal(key) {
+  audio(); if (actx) actx.resume();
+  $('#startOv').hidden = true; $('#resultOv').hidden = true;
+  animalSel.value = key;
+  reset();
+}
+document.querySelectorAll('.picks > button, .chips button').forEach(b =>
+  b.addEventListener('click', () => startAnimal(b.dataset.animal)));
+animalSel.addEventListener('change', () => { if (state !== 'intro') reset(); });
+$('#resetBtn').addEventListener('click', reset);
+$('#againBtn').addEventListener('click', () => { $('#resultOv').hidden = true; reset(); });
+$('#menuBtn').addEventListener('click', () => { $('#resultOv').hidden = true; $('#startOv').hidden = false; reset(); });
+
+function reset() {
+  pending.forEach(clearTimeout); pending = [];
+  if (swing) { scene.remove(swing); disposeTree(swing); }
+  if (spin && spin.parent === scene) { scene.remove(spin); disposeTree(spin); }
+  fallers.forEach(f => { scene.remove(f.g); disposeTree(f.g); });
+  labelsEl.innerHTML = ''; $('#trayList').innerHTML = ''; $('#trayEmpty').hidden = false;
+  $('#resultOv').hidden = true;
+  animalKey = animalSel.value; animal = ANIMALS[animalKey];
+  parts = []; meshes = []; fallers = []; results = []; slicing = null;
+  SL = animal.slice || null;
+  // 쓸 수 없는 자락을 깎는 평면. 자락이 있는 부위(삼겹살)만 켠다
+  coreTrim.constant = (animal.cut && animal.cut.trim) ?? 99;
+  /* 2차는 같은 작업실의 조리대만 쓴다. 고리·레일·트레이를 치우고 도마를 깐다.
+     조리대는 덩어리가 세로로 길어서 깊이를 늘려야 한다 (안 늘리면 도마가 공중에 뜬다). */
+  const td = !!animal.topdown;
+  plank.visible = td;
+  rail.visible = tray.visible = wall.visible = !td;
+  counterTop.scale.z = counter.scale.z = td ? 3.2 : 1;
+  /* 조명도 갈아 끼운다. 매달린 지육은 옆에서 보니 위에서 내리꽂는 빛이 맞고, 작업대는
+     위에서 보니 **스치는 빛**이라야 요철이 보인다 (법선이 전부 위를 봐서, 내리꽂으면 N·L이
+     고르게 나와 울퉁불퉁한 게 안 보인다). 스치는 빛이 주광이 되도록 나머지를 함께 낮춘다 —
+     안 낮추면 그냥 전체가 밝아지기만 한다. 작업등도 도마 바로 위로 내린다. */
+  graze.visible = td;
+  hemi.intensity = td ? 0.14 : 0.35;
+  key.intensity = td ? 0.95 : 2.1;
+  rim.intensity = td ? 0.5 : 0.9;
+  lamp.position.set(0, td ? 0.1 : 3.7, td ? 1.4 : 2.6);
+  lamp.intensity = td ? 4.5 : 7;
+  Object.assign(key.shadow.camera, td ? { left: -9, right: 9, top: 9, bottom: -9 } : { left: -5, right: 5, top: 5, bottom: -5 });
+  key.shadow.camera.updateProjectionMatrix();
+  facing = 1; flipping = false; swingA = 0; swingW = 0; carcassHung = true;
+  started = false; stroke = null;
+  state = $('#startOv').hidden ? 'play' : 'intro';
+  $('#timer').textContent = '0:00';
+  $('#flipBtn').classList.remove('nudge');
+  $('#brandName').textContent = animal.title;
+  $('#subtitle').textContent = animal.subtitle;
+  $('#tools').hidden = !animal.defs.some(d => d.saw);
+  $('#flipBtn').hidden = td;
+  setTool('knife');
+  buildCarcass(); updateHud(); renderProf();
+  fit();                                   // 1차와 2차는 카메라가 다르다 (매달림 / 내려다봄)
+  const n = shotLeft();
+  if (n && state === 'play') toast(`사냥한 고기예요. 산탄 ${n}발이 박혀 있어요 — 떼기 전에 찾아서 눌러 빼세요.`, 'warn');
+}
+
+/* ---------- layout ---------- */
+/* 화면 전체가 아니라 '가려지지 않는 자리'에 지육을 맞춘다.
+   넓은 화면은 오른쪽 패널이, 휴대폰은 위 HUD와 아래 조작줄이 가린다.
+   휴대폰은 트레이까지 담으려 하지 않는다 — 지금 자르는 고기를 크게 보는 쪽을 택했다. */
+function fit() {
+  const w = stageEl.clientWidth, h = stageEl.clientHeight;
+  renderer.setSize(w, h, false);
+  const dpr = Math.min(devicePixelRatio, phone() ? 1.75 : 2);
+  trailCv.width = w * dpr; trailCv.height = h * dpr;
+  trailCv.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  const m = phone(), wide = !m && w > 760;
+  const padX = wide ? 300 : 0, padTop = m ? 54 : 0, padBottom = m ? 68 : 0;
+  const effW = Math.max(120, w - padX), effH = Math.max(160, h - padTop - padBottom);
+  /* 2차 작업대는 **화면 비율과 상관없이 가로로 본다** — 도마 앞에 선 자세다 (2026-10-13 결정).
+     담을 것: 가로로 덩어리(6.3) + 썰어 둔 더미 + 떼어 둔 부위, 세로로 덩어리 폭.
+     좁은 화면은 작업대를 다 담지 않는다 — 1차와 같은 선택이다 (지금 썰고 있는 고기를 크게). */
+  const td = !!animal.topdown;
+  // 2차는 좁은 화면에서도 다 담는다 — 떼어 둔 부위와 썰어 둔 팩이 화면 밖으로 반쯤
+  // 나가면 작게 보이는 것보다 더 나빠 보인다 (1차 트레이와 달리 여기선 그게 결과물이다).
+  // 담을 자리는 부위마다 다르다 (animal.view = 덩어리 자리 / FILL).
+  const needH = td ? animal.view[0] : (m ? 6.9 : 7.4);
+  const needW = td ? animal.view[1] : (m ? 3.6 : (wide ? 5.8 : 4.4));
+  const t = Math.tan(THREE.MathUtils.degToRad(12));
+  const dist = Math.max(needH * h / (2 * t * effH), needW * h / (2 * t * effW));
+  camera.aspect = w / h;
+  if (td) {
+    /* 가로로 보는 건 **세계를 돌리지 않고 카메라만 굴려서** 한다 — 자르는 평면·주차 자리·
+       도마·조리대가 전부 로컬 좌표 그대로 맞는다. 기울기도 같이 굴려야 '화면 아래쪽에서
+       비스듬히' 보는 느낌이 남는다. */
+    const L = animal.look, k = dist * Math.sin(TD_TILT);
+    /* up = +x 라야 써는 방향(로컬 +y)이 화면 **왼쪽**으로 간다 — 오른손잡이는 왼손으로
+       덩어리를 잡고 **오른쪽 끝부터** 썰어 나간다 (칼 든 손이 잡은 손을 가로지르지 않는다).
+       기울기도 같이 뒤집어야 카메라가 화면 아래쪽(보는 사람 쪽)에 남는다. */
+    camera.up.set(1, 0, 0);
+    camera.position.set(L.x - k, L.y + dist * Math.cos(TD_TILT), L.z);
+    camBaseX = camera.position.x;
+    camera.lookAt(L);
+  } else {
+    camera.up.set(0, 1, 0);
+    camera.position.set(0, LOOK.y + 0.25, dist);
+    camera.lookAt(LOOK);
+  }
+  const offX = padX / 2, offY = (padBottom - padTop) / 2;
+  if (offX || offY) camera.setViewOffset(w, h, offX, offY, w, h); else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+}
+/* 휴대폰에선 고기 위에 조작을 올리지 않는다. 자주 쓰는 칼·톱·뒤집기만 아래 줄에 두고
+   가이드·고기·소리·새로걸기는 '☰'로 올라오는 시트 안으로 옮긴다. */
+const secondaryEl = $('#secondary'), controlsEl = $('.controls'), panelEl = $('.panel'), sheetBtn = $('#sheetBtn');
+function layout() {
+  const host = phone() ? panelEl : controlsEl;
+  if (secondaryEl.parentNode !== host) {
+    if (phone()) host.appendChild(secondaryEl); else host.insertBefore(secondaryEl, sheetBtn);
+  }
+  if (!phone()) closeSheet();
+}
+function closeSheet() { document.body.classList.remove('sheet'); sheetBtn.setAttribute('aria-expanded', 'false'); }
+sheetBtn.addEventListener('click', () => {
+  const on = document.body.classList.toggle('sheet');
+  sheetBtn.setAttribute('aria-expanded', on);
+});
+addEventListener('resize', () => { layout(); fit(); });
+if (phone()) { $('#trayBox').open = false; $('#profBox').open = false; $('#howto').open = false; }
+layout();
+
+/* ---------- frame loop ---------- */
+const clock = new THREE.Clock(), box = new THREE.Box3(), proj = new THREE.Vector3();
+const tctx = trailCv.getContext('2d');
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.033), now = performance.now();
+
+  // carcass sway (damped pendulum on the hook) — 2차는 작업대에 누워 있어 흔들리지 않는다
+  if (!animal.topdown) {
+    swingW += (-7 * swingA - 1.1 * swingW) * dt;
+    swingA += swingW * dt;
+    swing.rotation.z = swingA + Math.sin(now / 1400) * 0.004;
+  }
+
+  if (flipping) {
+    flipT = Math.min(1, flipT + dt / (animal.heavy ? 0.9 : 0.7));
+    const e = flipT < 0.5 ? 2 * flipT * flipT : 1 - Math.pow(-2 * flipT + 2, 2) / 2;
+    spin.rotation.y = flipFrom + (flipTo - flipFrom) * e;
+    if (flipT >= 1) { flipping = false; facing = Math.round(spin.rotation.y / Math.PI) % 2 === 0 ? 1 : -1; updateHud(); }
+  }
+  if (spin.parent === swing && !animal.topdown) {
+    // turn around the hook point, not the carcass origin
+    const c = animal.axisX * animal.scale, th = spin.rotation.y;
+    spin.position.x = c - c * Math.cos(th); spin.position.z = c * Math.sin(th);
+  }
+
+  for (const f of fallers) {
+    if (f.landed) continue;
+    /* 2차는 떨어지지 않는다 — 작업대 위를 미끄러진다. tip은 썬 조각을 단면이 위로 오게 눕히는 것. */
+    if (f.glide) {
+      f.t = Math.min(1, f.t + dt * 1.7);
+      const e = 1 - Math.pow(1 - f.t, 3);
+      f.g.position.lerpVectors(f.from, f.to, e);
+      if (f.tip) f.g.rotation.x = e * Math.PI / 2;
+      if (f.t >= 1) { f.landed = true; if (!f.hit) { sfx.thud(); f.hit = true; } }
+      continue;
+    }
+    f.v.y -= 9.8 * dt;
+    f.g.position.addScaledVector(f.v, dt);
+    f.g.rotation.x += f.w.x * dt; f.g.rotation.y += f.w.y * dt; f.g.rotation.z += f.w.z * dt;
+    f.g.updateMatrixWorld(true);
+    box.setFromObject(f.g);
+    if (box.min.y < TRAY_TOP) {
+      f.g.position.y += TRAY_TOP - box.min.y;
+      if (!f.hit) { sfx.thud(); f.hit = true; }
+      if (f.v.y < -1.6) { f.v.y *= -0.22; f.v.x *= 0.4; f.v.z *= 0.4; f.w.multiplyScalar(0.35); }
+      else { f.landed = true; spread(); }
+    }
+  }
+
+  // guides, incisions, labels
+  for (const p of parts) {
+    if (p.dirty) rebuildIncision(p);
+    const vis = carcassHung && !flipping && !p.done && p.side === facing;
+    const lvl = levelOf(p.def.id), locked = !prereqMet(p);
+    showGuide(p, lvl, vis);
+    p.solid.material = locked ? guideLockedMat : (p.def.saw ? sawGuideMat : guideMat);
+    let near = false;
+    if (vis && lvl === 3 && hoverLocal && !locked) near = Math.hypot(hoverLocal[0] - p.mid[0], hoverLocal[1] - p.mid[1]) < 0.4;
+    p.hover.visible = near;
+    p.groove.visible = vis;
+    p.incision.visible = vis;
+    p.scratchGroup.visible = p.shotGroup.visible = p.done || (!flipping && p.side === facing);
+    const showLabel = vis && lvl === 0;
+    p.label.hidden = !showLabel;
+    if (showLabel) {
+      const s0 = p.samples[Math.round((p.samples.length - 1) * p.def.labelAt)];
+      proj.set(s0[0], s0[1], p.side * PICK_Z); spin.localToWorld(proj); proj.project(camera);
+      p.label.style.left = `${(proj.x + 1) / 2 * stageEl.clientWidth}px`;
+      p.label.style.top = `${(1 - proj.y) / 2 * stageEl.clientHeight}px`;
+      const sawTag = p.def.saw ? '<span class="tool">톱</span>' : '';
+      const html = locked
+        ? `<span class="n">${p.def.order}</span>${p.def.name}<em>${p.def.prereq.filter(id => !partOf(id, p.side).done).map(defName).join(', ')} 먼저</em>`
+        : `<span class="n">${p.def.order}</span>${p.def.name}${sawTag}`;
+      if (p.label._h !== html) { p.label.innerHTML = html; p.label._h = html; }
+      p.label.classList.toggle('locked', locked);
+      p.label.classList.toggle('saw', !!p.def.saw && !locked);
+    }
+  }
+
+  /* 썰기 가이드: 다음 칼자리(주문한 두께)를 1차와 같은 4단계로 보여 준다. */
+  if (slicing) {
+    const lvl = levelOf('slice'), y = slicing.front + sliceWant(), show = y <= SL.y[1];
+    showGuide(slicing, lvl, show);
+    slicing.solid.position.y = slicing.dashed.position.y = slicing.ends.position.y = y;
+    slicing.edge.position.y = slicing.front;
+  }
+
+  moveHandTool(dt);
+
+  if (started && (state === 'play' || state === 'slice')) $('#timer').textContent = fmtTime(now - startTime);
+
+  // 뒤집으면 지육이 고리를 축으로 돌아 옆으로 밀린다. 카메라가 그만큼 따라가 화면에 붙잡아 둔다
+  // (안 따라가면 안쪽 면 작업 때 지육이 오른쪽 패널 밑으로 들어간다)
+  const panX = animal.topdown ? camBaseX : (spin.parent === swing ? spin.position.x : 0);
+  if (shakeT > 0) shakeT -= dt;                              // 뼈에 걸렸을 때 흔들림
+  camera.position.x = panX + (shakeT > 0 ? (Math.random() - 0.5) * 0.06 : 0);
+
+  // knife / saw trail
+  const W = trailCv.clientWidth, H = trailCv.clientHeight;
+  tctx.clearRect(0, 0, W, H);
+  while (trail.length && now - trail[0].t > 260) trail.shift();
+  tctx.lineCap = 'round';
+  for (let i = 1; i < trail.length; i++) {
+    const a = trail[i - 1], b = trail[i], k = 1 - (now - b.t) / 260;
+    tctx.strokeStyle = b.dead ? `rgba(239,106,91,${k})` : tool === 'saw' ? `rgba(160,214,255,${k * 0.9})` : `rgba(255,246,230,${k * 0.9})`;
+    tctx.lineWidth = (tool === 'saw' ? 2 : 1) + 3.5 * k;
+    tctx.beginPath(); tctx.moveTo(a.x, a.y); tctx.lineTo(b.x, b.y); tctx.stroke();
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* ponytail: dev handle for automated playthroughs (local coords -> client px).
+   Remove if the global ever bothers you; tests drive the game through it. */
+window.dev = {
+  parts: () => parts, side: () => facing, phase: () => state, flip, setTool, frame,
+  // 2차 썰기 상태 (tools/playtest.js 가 두께를 계산하는 데 쓴다)
+  get SLICE() { return SL; },          // 지금 판의 썰기 수치 (부위마다 다르다)
+  slice: () => slicing && { front: slicing.front, ideal: slicing.ideal, want: sliceWant(), sum: slicing.sum, packs: slicing.packs.length, pieces: slicing.pieces.length },
+  resetXp: () => { xp = {}; store.set('butcher-xp-v2', xp); renderProf(); updateHud(); },
+  client: (q, side = facing) => {
+    const w = spin.localToWorld(new THREE.Vector3(q[0], q[1], side * PICK_Z)).project(camera);
+    const r = renderer.domElement.getBoundingClientRect();
+    return [r.left + (w.x + 1) / 2 * r.width, r.top + (1 - w.y) / 2 * r.height];
+  }
+};
+
+reset();
+fit();
+renderer.setAnimationLoop(frame);
+/* .glb는 뒤에서 받는다. 받아지면 아직 칼을 대지 않았을 때 다시 세운다.
+   state로 보면 안 된다 — 로딩이 끝나기 전에 시작 화면에서 고기를 고르면 state는 이미
+   'play'라서, 고기가 투명한 채로 한 판이 끝나버렸다. */
+const glbKeys = Object.keys(ANIMALS).filter(k => !ANIMALS[k].derivedFrom);
+Promise.all(glbKeys.map(loadGLB)).then(ok => {
+  if (!started) reset();                     // 한쪽만 실패해도 성공한 쪽은 세운다
+  const bad = glbKeys.filter((k, i) => !ok[i]);
+  if (bad.length) toast(`${bad.map(k => 'models/' + k + '.json').join(', ')}를 못 불러왔어요. 로컬 서버로 열어주세요 (python3 -m http.server).`, 'warn');
+});
+</script>
+
+</body>
+</html>
