@@ -39,9 +39,16 @@ CDN에서 불러오고, 텍스처는 전부 캔버스로 그린다 — 외부 �
 
 이 저장소는 **게임만 담은 사본**이다. 모델을 만드는 블렌더 스크립트와 개발 기록은 따로 둔다.
 
+## 라이선스
+
+- **코드**(`index.html`): MIT — [LICENSE](LICENSE). 마음대로 가져다 써도 된다.
+- **모델**(`models/`): 받아온 지육을 잘라 만든 2차 저작물이라 원본 라이선스를 따른다.
+  돼지·소·사슴은 **[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)**(원저작자 표시와
+  변경 사실 명시가 필요하다), 닭은 **CC0**(조건 없음).
+
 ## 출처
 
-- 돼지 지육 모델: [Hanging Pig Carcass](https://blendswap.com/blend/25115) by **oparaskos** — CC BY 4.0
+- 돼지 지육 모델: [Hanging Pig Carcass](https://blendswap.com/blend/25115) by **oparaskos** — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - 닭 지육 모델: [Plucked Chicken](https://blendswap.com/blend/6497) by **maconbot** — CC0
 
 `models/` 안의 부위별 메시는 위 모델을 잘라 만든 2차 저작물이다. **소와 사슴도 같은 돼지
